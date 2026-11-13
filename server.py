@@ -21,6 +21,7 @@ import json
 import mimetypes
 import os
 import secrets
+import shutil
 import sys
 import time
 import urllib.error
@@ -32,10 +33,17 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
+SEED_CONTENT_FILE = BASE_DIR / "data" / "content.json"
+STORAGE_ROOT = os.environ.get("STORAGE_DIR") or os.environ.get("RAILWAY_VOLUME_MOUNT_PATH")
+if STORAGE_ROOT:
+    DATA_DIR = Path(STORAGE_ROOT) / "data"
+    UPLOADS_DIR = Path(STORAGE_ROOT) / "uploads"
+else:
+    DATA_DIR = BASE_DIR / "data"
+    UPLOADS_DIR = BASE_DIR / "uploads"
+
 CONTENT_FILE = DATA_DIR / "content.json"
 SECRET_FILE = DATA_DIR / "admin_secret.json"
-UPLOADS_DIR = BASE_DIR / "uploads"
 
 SESSION_COOKIE_NAME = "blog_admin_session"
 SESSION_TTL_SECONDS = 60 * 60 * 24 * 7  # 7 gün
@@ -51,6 +59,8 @@ LOCKOUT_SECONDS = 300
 def ensure_dirs():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    if not CONTENT_FILE.exists() and SEED_CONTENT_FILE.exists():
+        shutil.copy2(SEED_CONTENT_FILE, CONTENT_FILE)
 
 
 def hash_password(password: str, salt_hex: str | None = None) -> tuple[str, str]:
@@ -729,12 +739,24 @@ class BlogHandler(BaseHTTPRequestHandler):
             self.send_error(403, "Erişim reddedildi")
             return
 
-        target = (BASE_DIR / rel).resolve()
-        try:
-            target.relative_to(BASE_DIR)
-        except ValueError:
-            self.send_error(403, "Erişim reddedildi")
-            return
+        if parts[0] == "uploads" and len(parts) == 2:
+            target = (UPLOADS_DIR / parts[1]).resolve()
+            try:
+                target.relative_to(UPLOADS_DIR.resolve())
+            except ValueError:
+                self.send_error(403, "Erişim reddedildi")
+                return
+            if not target.is_file():
+                fallback = (BASE_DIR / "uploads" / parts[1]).resolve()
+                if fallback.is_file():
+                    target = fallback
+        else:
+            target = (BASE_DIR / rel).resolve()
+            try:
+                target.relative_to(BASE_DIR)
+            except ValueError:
+                self.send_error(403, "Erişim reddedildi")
+                return
 
         if not target.is_file():
             self.send_error(404, "Dosya bulunamadı")
