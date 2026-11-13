@@ -23,7 +23,10 @@ import os
 import secrets
 import sys
 import time
+import urllib.error
+import urllib.request
 import uuid
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -67,27 +70,105 @@ def verify_password(password: str, salt_hex: str, expected_hash: str) -> bool:
     return hmac.compare_digest(computed, expected_hash)
 
 
+def _write_secret_file(payload: dict):
+    ensure_dirs()
+    tmp = SECRET_FILE.with_suffix(".tmp")
+    with tmp.open("w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, SECRET_FILE)
+
+
 def load_secret() -> dict | None:
     if not SECRET_FILE.exists():
         return None
     with SECRET_FILE.open("r", encoding="utf-8") as f:
-        return json.load(f)
+        data = json.load(f)
+    if "webhook_secret" not in data:
+        data["webhook_secret"] = secrets.token_hex(24)
+        _write_secret_file(data)
+    return data
 
 
 def save_secret(username: str, password: str):
-    ensure_dirs()
     salt_hex, pw_hash = hash_password(password)
+    existing = load_secret() or {}
     payload = {
         "username": username.strip(),
         "salt": salt_hex,
         "password_hash": pw_hash,
         "session_secret": secrets.token_hex(32),
+        "webhook_secret": existing.get("webhook_secret") or secrets.token_hex(24),
         "created_at": int(time.time()),
     }
-    tmp = SECRET_FILE.with_suffix(".tmp")
-    with tmp.open("w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, SECRET_FILE)
+    _write_secret_file(payload)
+
+
+def rotate_webhook_secret() -> str:
+    data = load_secret()
+    if not data:
+        raise RuntimeError("Admin kurulumu henüz yapılmamış.")
+    new_sec = secrets.token_hex(24)
+    data["webhook_secret"] = new_sec
+    _write_secret_file(data)
+    return new_sec
+
+
+TR_MONTHS = [
+    "", "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+    "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık",
+]
+
+
+def format_tr_date(dt: datetime | None = None) -> str:
+    dt = dt or datetime.now()
+    return f"{dt.day:02d} {TR_MONTHS[dt.month]} {dt.year}"
+
+
+def download_image_safely(url: str) -> str | None:
+    if not url or not url.startswith(("http://", "https://")):
+        return None
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "PersonalBlogSync/1.0"},
+        )
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            ctype = (resp.headers.get("Content-Type") or "").lower()
+            if not ctype.startswith("image/"):
+                return url
+            raw = resp.read(MAX_UPLOAD_BYTES + 1)
+            if len(raw) > MAX_UPLOAD_BYTES:
+                return url
+            ext = "jpg"
+            if "png" in ctype:
+                ext = "png"
+            elif "webp" in ctype:
+                ext = "webp"
+            elif "gif" in ctype:
+                ext = "gif"
+            ensure_dirs()
+            fname = f"{uuid.uuid4().hex}.{ext}"
+            with (UPLOADS_DIR / fname).open("wb") as f:
+                f.write(raw)
+            return f"/uploads/{fname}"
+    except Exception:
+        return url
+
+
+def fetch_github_repos(username: str) -> list[dict]:
+    clean_user = username.strip().lstrip("@")
+    if not clean_user:
+        raise ValueError("GitHub kullanıcı adı boş olamaz.")
+    api_url = f"https://api.github.com/users/{clean_user}/repos?sort=updated&per_page=8"
+    req = urllib.request.Request(
+        api_url,
+        headers={
+            "User-Agent": "PersonalBlogSync/1.0",
+            "Accept": "application/vnd.github+json",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=8) as resp:
+        return json.loads(resp.read().decode("utf-8"))
 
 
 def load_content() -> dict:
@@ -224,6 +305,23 @@ class BlogHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if path == "/api/admin/automation":
+            user = self._get_authenticated_user()
+            if not user:
+                self._send_json(401, {"error": "Yetkisiz erişim."})
+                return
+            secret_data = load_secret()
+            content = load_content()
+            self._send_json(
+                200,
+                {
+                    "webhookPath": "/api/webhook/social",
+                    "webhookSecret": secret_data.get("webhook_secret", ""),
+                    "githubUsername": content.get("profile", {}).get("githubUsername", ""),
+                },
+            )
+            return
+
         # /admin kısa yolu
         if path in ("/admin", "/admin/"):
             path = "/admin.html"
@@ -311,10 +409,69 @@ class BlogHandler(BaseHTTPRequestHandler):
             self._send_json(200, {"ok": True}, {"Set-Cookie": cookie})
             return
 
+        # Otomasyon Webhook Alıcısı (GitHub, Instagram, LinkedIn, Make/n8n/Zapier)
+        if path == "/api/webhook/social":
+            self._handle_social_webhook()
+            return
+
         # Buradan sonrası YETKİ GEREKTİRİR
         user = self._get_authenticated_user()
         if not user:
             self._send_json(401, {"error": "Yetkisiz erişim. Lütfen giriş yap."})
+            return
+
+        if path == "/api/admin/automation/rotate-secret":
+            try:
+                new_secret = rotate_webhook_secret()
+                self._send_json(200, {"ok": True, "webhookSecret": new_secret})
+            except Exception as e:
+                self._send_json(400, {"error": str(e)})
+            return
+
+        if path == "/api/admin/sync/github":
+            body = self._read_json_body(4096) or {}
+            gh_user = str(body.get("username", "")).strip().lstrip("@")
+            if not gh_user:
+                self._send_json(400, {"error": "GitHub kullanıcı adı gerekli."})
+                return
+            try:
+                repos = fetch_github_repos(gh_user)
+            except urllib.error.HTTPError as e:
+                self._send_json(400, {"error": f"GitHub API hatası: {e.code}"})
+                return
+            except Exception as e:
+                self._send_json(500, {"error": f"GitHub bağlantısı başarısız: {e}"})
+                return
+
+            content = load_content()
+            content.setdefault("profile", {})["githubUsername"] = gh_user
+            existing_urls = {p.get("url") for p in content.get("socialPosts", [])}
+            added = 0
+            for repo in repos:
+                if repo.get("fork"):
+                    continue
+                repo_url = repo.get("html_url")
+                if not repo_url or repo_url in existing_urls:
+                    continue
+                lang = repo.get("language") or "Kod"
+                stars = repo.get("stargazers_count", 0)
+                new_post = {
+                    "id": f"gh-{uuid.uuid4().hex[:8]}",
+                    "platform": "github",
+                    "platformLabel": "GitHub",
+                    "date": format_tr_date(),
+                    "title": repo.get("name", "GitHub Projesi"),
+                    "excerpt": repo.get("description") or "GitHub üzerinde paylaşılan yeni açık kaynak depo.",
+                    "image": None,
+                    "metric": f"★ {stars} yıldız · {lang}",
+                    "url": repo_url,
+                }
+                content.setdefault("socialPosts", []).insert(0, new_post)
+                existing_urls.add(repo_url)
+                added += 1
+
+            save_content(content)
+            self._send_json(200, {"ok": True, "added": added, "username": gh_user})
             return
 
         if path == "/api/admin/upload":
@@ -374,6 +531,129 @@ class BlogHandler(BaseHTTPRequestHandler):
             return
 
         self._send_json(404, {"error": "Bilinmeyen uç nokta."})
+
+    def _handle_social_webhook(self):
+        secret_data = load_secret()
+        if not secret_data or not secret_data.get("webhook_secret"):
+            self._send_json(503, {"error": "Webhook henüz yapılandırılmamış."})
+            return
+
+        expected_secret = secret_data["webhook_secret"]
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            self._send_json(400, {"error": "Geçersiz Content-Length."})
+            return
+        if length <= 0 or length > 1024 * 1024:
+            self._send_json(400, {"error": "Geçersiz istek boyutu."})
+            return
+
+        raw_body = self.rfile.read(length)
+
+        # Doğrulama: X-Webhook-Secret, Authorization: Bearer veya GitHub X-Hub-Signature-256
+        header_secret = self.headers.get("X-Webhook-Secret", "").strip()
+        auth_header = self.headers.get("Authorization", "").strip()
+        if auth_header.lower().startswith("bearer "):
+            header_secret = auth_header[7:].strip()
+
+        gh_sig = self.headers.get("X-Hub-Signature-256", "").strip()
+        authorized = False
+        if header_secret and hmac.compare_digest(header_secret, expected_secret):
+            authorized = True
+        elif gh_sig.startswith("sha256="):
+            mac = hmac.new(
+                expected_secret.encode("utf-8"),
+                raw_body,
+                hashlib.sha256,
+            ).hexdigest()
+            if hmac.compare_digest(gh_sig[7:], mac):
+                authorized = True
+
+        if not authorized:
+            self._send_json(401, {"error": "Geçersiz webhook anahtarı veya imzası."})
+            return
+
+        try:
+            payload = json.loads(raw_body.decode("utf-8"))
+        except Exception:
+            self._send_json(400, {"error": "Geçersiz JSON gövdesi."})
+            return
+
+        gh_event = self.headers.get("X-GitHub-Event", "").strip().lower()
+        if gh_event == "ping":
+            self._send_json(200, {"ok": True, "message": "GitHub webhook bağlantısı doğrulandı."})
+            return
+
+        platform_labels = {
+            "instagram": "Instagram",
+            "linkedin": "LinkedIn",
+            "github": "GitHub",
+            "youtube": "YouTube",
+        }
+
+        if gh_event:
+            repo = payload.get("repository") or {}
+            repo_name = repo.get("name") or "GitHub"
+            repo_url = repo.get("html_url") or "https://github.com"
+            lang = repo.get("language") or "Kod"
+            stars = repo.get("stargazers_count", 0)
+
+            if gh_event == "push":
+                head = payload.get("head_commit") or {}
+                title = f"{repo_name} — Yeni Güncelleme"
+                excerpt = (head.get("message") or repo.get("description") or "Yeni kod güncellemesi paylaşıldı.").splitlines()[0]
+                url = head.get("url") or repo_url
+            elif gh_event == "release":
+                rel = payload.get("release") or {}
+                title = f"{repo_name} {rel.get('tag_name', '')}".strip()
+                excerpt = (rel.get("name") or rel.get("body") or "Yeni sürüm yayınlandı.")[:180]
+                url = rel.get("html_url") or repo_url
+            else:
+                title = repo_name
+                excerpt = repo.get("description") or f"GitHub üzerinde {gh_event} aktivitesi."
+                url = repo_url
+
+            new_post = {
+                "id": f"wh-{uuid.uuid4().hex[:8]}",
+                "platform": "github",
+                "platformLabel": "GitHub",
+                "date": format_tr_date(),
+                "title": title,
+                "excerpt": excerpt,
+                "image": None,
+                "metric": f"★ {stars} yıldız · {lang}",
+                "url": url,
+            }
+        else:
+            platform = str(payload.get("platform", "")).strip().lower()
+            if platform not in platform_labels:
+                self._send_json(400, {"error": "platform alanı instagram, linkedin, github veya youtube olmalıdır."})
+                return
+
+            title = str(payload.get("title", "")).strip() or f"Yeni {platform_labels[platform]} Paylaşımı"
+            excerpt = str(payload.get("excerpt", "")).strip()
+            url = str(payload.get("url", "")).strip() or "https://"
+            raw_image = str(payload.get("image") or "").strip()
+            saved_image = download_image_safely(raw_image) if raw_image else None
+
+            new_post = {
+                "id": f"wh-{uuid.uuid4().hex[:8]}",
+                "platform": platform,
+                "platformLabel": platform_labels[platform],
+                "date": str(payload.get("date") or "").strip() or format_tr_date(),
+                "title": title[:140],
+                "excerpt": excerpt[:320],
+                "image": saved_image,
+                "metric": str(payload.get("metric") or "").strip() or "Yeni",
+                "url": url,
+            }
+            if platform == "youtube" and payload.get("youtubeId"):
+                new_post["youtubeId"] = str(payload["youtubeId"]).strip()
+
+        content = load_content()
+        content.setdefault("socialPosts", []).insert(0, new_post)
+        save_content(content)
+        self._send_json(201, {"ok": True, "item": new_post})
 
     def do_PUT(self):
         parsed = urlparse(self.path)

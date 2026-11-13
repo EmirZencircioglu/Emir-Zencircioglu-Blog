@@ -2,7 +2,7 @@
  * ADMIN PANELİ İSTEMCİ MANTIĞI (AYRI SAYFA / GÖRÜNÜM YÖNETİMİ)
  */
 
-const VALID_VIEWS = ["overview", "blog", "events", "projects", "social", "profile"];
+const VALID_VIEWS = ["overview", "blog", "events", "projects", "social", "automation", "profile"];
 
 document.addEventListener("DOMContentLoaded", async () => {
   initNavigation();
@@ -11,6 +11,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initImageUpload("evFile", "evImageUrl", "evPreview");
   initAuthForms();
   initPublishForms();
+  initAutomationControls();
 
   await checkAuthAndBoot();
 });
@@ -227,6 +228,58 @@ async function loadAdminContent() {
   renderSectionList("listEvents", "eventsListCount", "events", content.events || [], (x) => `${x.categoryLabel} · ${x.place} · ${x.date}`, "etkinlik");
   renderSectionList("listProjects", "projectsListCount", "projects", content.projects || [], (x) => `${x.year} · ${x.status}`, "proje");
   renderSectionList("listSocial", "socialListCount", "socialPosts", content.socialPosts || [], (x) => `${x.platformLabel} · ${x.date}`, "gönderi");
+
+  await loadAutomationInfo();
+}
+
+async function loadAutomationInfo() {
+  const res = await fetch("/api/admin/automation", { cache: "no-store" });
+  if (!res.ok) return;
+  const info = await res.json();
+  setVal("webhookUrlInput", `${window.location.origin}${info.webhookPath}`);
+  setVal("webhookSecretInput", info.webhookSecret);
+  if (info.githubUsername) setVal("ghUsername", info.githubUsername);
+}
+
+function initAutomationControls() {
+  document.getElementById("copyWebhookUrlBtn")?.addEventListener("click", async () => {
+    await navigator.clipboard?.writeText(val("webhookUrlInput"));
+    showToast("Webhook URL kopyalandı!");
+  });
+
+  document.getElementById("copyWebhookSecretBtn")?.addEventListener("click", async () => {
+    await navigator.clipboard?.writeText(val("webhookSecretInput"));
+    showToast("Gizli anahtar kopyalandı!");
+  });
+
+  document.getElementById("rotateSecretBtn")?.addEventListener("click", async () => {
+    if (!confirm("Gizli anahtarı yenilersen eski bağlantıları güncellemen gerekir. Devam edilsin mi?")) return;
+    const res = await fetch("/api/admin/automation/rotate-secret", { method: "POST" });
+    const data = await res.json();
+    if (res.ok) {
+      setVal("webhookSecretInput", data.webhookSecret);
+      showToast("Yeni gizli anahtar oluşturuldu!");
+    } else {
+      showToast(data.error || "Anahtar yenilenemedi.", true);
+    }
+  });
+
+  document.getElementById("formGithubSync")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const username = val("ghUsername");
+    const res = await fetch("/api/admin/sync/github", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showToast(`${data.added} yeni GitHub reposu eklendi!`);
+      await loadAdminContent();
+    } else {
+      showToast(data.error || "GitHub senkronizasyonu başarısız.", true);
+    }
+  });
 }
 
 function updateOverviewCounts(content) {
