@@ -1,0 +1,1 @@
+# Harici bağımlılık gerekmez (yalnızca Python standart kütüphanesi kullanılır)

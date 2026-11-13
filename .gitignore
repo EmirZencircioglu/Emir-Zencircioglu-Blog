@@ -1,0 +1,5 @@
+data/admin_secret.json
+data/*.tmp
+__pycache__/
+*.pyc
+.DS_Store

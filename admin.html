@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Admin Paneli — Kişisel Blog</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/admin.css" />
+</head>
+<body>
+  <div class="ambient-bg" aria-hidden="true">
+    <div class="ambient-orb orb-1"></div>
+    <div class="ambient-orb orb-2"></div>
+    <div class="ambient-grid"></div>
+  </div>
+
+  <!-- AUTH / SETUP VIEW -->
+  <main class="auth-shell" id="authShell">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <span class="logo-dot"></span>
+        <span>Kişisel Blog · Özel Yönetim</span>
+      </div>
+
+      <!-- İlk Kurulum -->
+      <div id="setupView" class="hidden">
+        <h1>İlk Kurulum</h1>
+        <p class="auth-sub">Bu kurulum yalnızca bir kez yapılır. Oluşturduğun bilgiler sunucuda şifreli (PBKDF2) olarak saklanır ve başka kimse erişemez.</p>
+        <form id="setupForm" class="admin-form">
+          <label class="field">
+            <span>Kullanıcı Adı</span>
+            <input type="text" id="setupUser" minlength="3" required placeholder="ör. admin" autocomplete="username" />
+          </label>
+          <label class="field">
+            <span>Şifre (en az 8 karakter)</span>
+            <input type="password" id="setupPass" minlength="8" required placeholder="••••••••" autocomplete="new-password" />
+          </label>
+          <label class="field">
+            <span>Şifre Tekrar</span>
+            <input type="password" id="setupPassConfirm" minlength="8" required placeholder="••••••••" autocomplete="new-password" />
+          </label>
+          <p class="form-error hidden" id="setupError"></p>
+          <button type="submit" class="btn btn-primary full-btn">Hesabı Oluştur & Panele Gir</button>
+        </form>
+      </div>
+
+      <!-- Giriş -->
+      <div id="loginView" class="hidden">
+        <h1>Admin Girişi</h1>
+        <p class="auth-sub">Yalnızca yetkili kullanıcı gönderi paylaşabilir ve içerikleri düzenleyebilir.</p>
+        <form id="loginForm" class="admin-form">
+          <label class="field">
+            <span>Kullanıcı Adı</span>
+            <input type="text" id="loginUser" required placeholder="Kullanıcı adın" autocomplete="username" />
+          </label>
+          <label class="field">
+            <span>Şifre</span>
+            <input type="password" id="loginPass" required placeholder="••••••••" autocomplete="current-password" />
+          </label>
+          <p class="form-error hidden" id="loginError"></p>
+          <button type="submit" class="btn btn-primary full-btn">Giriş Yap</button>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <!-- DASHBOARD SHELL -->
+  <div class="dashboard-layout hidden" id="dashboardShell">
+    <!-- SIDEBAR -->
+    <aside class="admin-sidebar">
+      <div class="sidebar-head">
+        <div class="admin-brand">
+          <span class="logo-dot"></span>
+          <strong>Yönetim Paneli</strong>
+        </div>
+        <span class="tag-chip" id="loggedUserBadge">@admin</span>
+      </div>
+
+      <nav class="sidebar-nav" aria-label="Admin Menü">
+        <a href="#overview" class="sidebar-link active" data-view="overview">
+          <span class="nav-ico">◈</span>
+          <span>Genel Bakış</span>
+        </a>
+        <div class="sidebar-divider">İÇERİK YAYINLAMA</div>
+        <a href="#blog" class="sidebar-link" data-view="blog">
+          <span class="nav-ico">✎</span>
+          <span>Blog & Fikirler</span>
+        </a>
+        <a href="#events" class="sidebar-link" data-view="events">
+          <span class="nav-ico">◎</span>
+          <span>Etkinlik & Zirveler</span>
+        </a>
+        <a href="#projects" class="sidebar-link" data-view="projects">
+          <span class="nav-ico">⌘</span>
+          <span>Projeler</span>
+        </a>
+        <a href="#social" class="sidebar-link" data-view="social">
+          <span class="nav-ico">↗</span>
+          <span>Instagram, LinkedIn & Sosyal</span>
+        </a>
+        <div class="sidebar-divider">AYARLAR</div>
+        <a href="#profile" class="sidebar-link" data-view="profile">
+          <span class="nav-ico">☺</span>
+          <span>Profil & Kurumlar</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-foot">
+        <a href="/" target="_blank" class="btn btn-ghost btn-sm full-btn">Siteyi Görüntüle ↗</a>
+        <button id="logoutBtn" class="btn btn-ghost btn-sm full-btn danger-ghost">Çıkış Yap</button>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT WORKSPACE -->
+    <main class="admin-main">
+      <!-- 1. GENEL BAKIŞ -->
+      <section class="admin-view active" id="view-overview">
+        <div class="view-header">
+          <div>
+            <span class="section-tag">GENEL BAKIŞ</span>
+            <h1>Hoş Geldin! Ne paylaşmak istersin?</h1>
+            <p class="view-desc">Her içerik türü için soldaki menüden veya aşağıdaki hızlı kartlardan ilgili sayfaya geçebilirsin.</p>
+          </div>
+        </div>
+
+        <div class="overview-stats">
+          <a href="#blog" class="stat-card-link" data-view="blog">
+            <span class="stat-card-label">Blog & Fikir Yazıları</span>
+            <strong class="stat-card-num" id="countIdeas">0</strong>
+            <span class="stat-card-cta">+ Yeni yazı ekle →</span>
+          </a>
+          <a href="#events" class="stat-card-link" data-view="events">
+            <span class="stat-card-label">Etkinlik & Zirveler</span>
+            <strong class="stat-card-num" id="countEvents">0</strong>
+            <span class="stat-card-cta">+ Yeni fotoğraf & etkinlik ekle →</span>
+          </a>
+          <a href="#projects" class="stat-card-link" data-view="projects">
+            <span class="stat-card-label">Projeler</span>
+            <strong class="stat-card-num" id="countProjects">0</strong>
+            <span class="stat-card-cta">+ Yeni proje ekle →</span>
+          </a>
+          <a href="#social" class="stat-card-link" data-view="social">
+            <span class="stat-card-label">Sosyal Medya (IG / LI / GH / YT)</span>
+            <strong class="stat-card-num" id="countSocial">0</strong>
+            <span class="stat-card-cta">+ Yeni gönderi ekle →</span>
+          </a>
+        </div>
+      </section>
+
+      <!-- 2. BLOG & FİKİRLER SAYFASI -->
+      <section class="admin-view" id="view-blog">
+        <div class="view-header">
+          <div>
+            <span class="section-tag">BLOG & FİKİRLER</span>
+            <h1>Blog Yazısı veya Fikir Yayınla</h1>
+            <p class="view-desc">Düşüncelerini, teknik notlarını veya makalelerini burada yazıp yayınlayabilirsin.</p>
+          </div>
+        </div>
+
+        <div class="admin-grid">
+          <div class="admin-panel-card">
+            <h2>Yeni Yazı Oluştur</h2>
+            <form id="formIdea" class="admin-form">
+              <div class="field-row">
+                <label class="field">
+                  <span>Etiket / Kategori</span>
+                  <input type="text" id="ideaTag" required placeholder="ör. Teknoloji, Tasarım" />
+                </label>
+                <label class="field">
+                  <span>Tarih</span>
+                  <input type="text" id="ideaDate" required placeholder="13 Kas 2026" />
+                </label>
+              </div>
+              <div class="field-row">
+                <label class="field">
+                  <span>Okuma Süresi</span>
+                  <input type="text" id="ideaReadTime" required placeholder="4 dk okuma" />
+                </label>
+                <label class="field">
+                  <span>Yazı Başlığı</span>
+                  <input type="text" id="ideaTitle" required placeholder="Başlık..." />
+                </label>
+              </div>
+              <label class="field">
+                <span>Kısa Özet</span>
+                <input type="text" id="ideaSummary" required placeholder="Listede görünecek tek cümlelik özet" />
+              </label>
+              <label class="field">
+                <span>İçerik (Her paragrafı boş bir satırla ayır)</span>
+                <textarea id="ideaContent" rows="8" required placeholder="Birinci paragraf...&#10;&#10;İkinci paragraf..."></textarea>
+              </label>
+              <button type="submit" class="btn btn-primary full-btn">Blog Yazısını Yayınla</button>
+            </form>
+          </div>
+
+          <aside class="admin-panel-card">
+            <div class="list-header">
+              <h2>Yayındaki Yazılar</h2>
+              <span class="mono-sub" id="blogListCount">0 yazı</span>
+            </div>
+            <div class="items-list" id="listIdeas"></div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- 3. ETKİNLİK & ZİRVELER SAYFASI -->
+      <section class="admin-view" id="view-events">
+        <div class="view-header">
+          <div>
+            <span class="section-tag">ETKİNLİK & ZİRVELER</span>
+            <h1>Etkinlik, Zirve & Kurum Ziyareti Paylaş</h1>
+            <p class="view-desc">Gittiğin kurumları, şirketleri, zirveleri ve çektiğin fotoğrafları galerine ekle.</p>
+          </div>
+        </div>
+
+        <div class="admin-grid">
+          <div class="admin-panel-card">
+            <h2>Yeni Etkinlik / Fotoğraf Ekle</h2>
+            <form id="formEvent" class="admin-form">
+              <div class="field-row">
+                <label class="field">
+                  <span>Kategori</span>
+                  <select id="evCategory" required>
+                    <option value="zirve">Zirve</option>
+                    <option value="sirket">Şirket & Kurum</option>
+                    <option value="etkinlik">Topluluk</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Tarih</span>
+                  <input type="text" id="evDate" required placeholder="Kasım 2026" />
+                </label>
+              </div>
+              <div class="field-row">
+                <label class="field">
+                  <span>Mekan / Şehir / Kurum</span>
+                  <input type="text" id="evPlace" required placeholder="İstanbul · Bilişim Vadisi" />
+                </label>
+                <label class="field">
+                  <span>Etkinlik Başlığı</span>
+                  <input type="text" id="evTitle" required placeholder="Zirve veya buluşma adı" />
+                </label>
+              </div>
+              <label class="field">
+                <span>Açıklama</span>
+                <textarea id="evDesc" rows="3" required placeholder="Orada neler yaptın, kimlerle buluştun?"></textarea>
+              </label>
+              <div class="field">
+                <span>Fotoğraf Yükle veya URL Gir</span>
+                <div class="upload-box">
+                  <input type="file" id="evFile" accept="image/*" />
+                  <input type="text" id="evImageUrl" required placeholder="Yüklenen fotoğraf yolu veya https://..." />
+                </div>
+                <img id="evPreview" class="upload-preview hidden" alt="Önizleme" />
+              </div>
+              <button type="submit" class="btn btn-primary full-btn">Etkinliği Yayınla</button>
+            </form>
+          </div>
+
+          <aside class="admin-panel-card">
+            <div class="list-header">
+              <h2>Yayındaki Etkinlikler</h2>
+              <span class="mono-sub" id="eventsListCount">0 etkinlik</span>
+            </div>
+            <div class="items-list" id="listEvents"></div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- 4. PROJELER SAYFASI -->
+      <section class="admin-view" id="view-projects">
+        <div class="view-header">
+          <div>
+            <span class="section-tag">PROJELER</span>
+            <h1>Yeni Proje Yayınla</h1>
+            <p class="view-desc">Geliştirdiğin yazılımları, açık kaynak araçları ve ürünlerini vitrine ekle.</p>
+          </div>
+        </div>
+
+        <div class="admin-grid">
+          <div class="admin-panel-card">
+            <h2>Proje Bilgileri</h2>
+            <form id="formProject" class="admin-form">
+              <div class="field-row">
+                <label class="field">
+                  <span>Proje Adı</span>
+                  <input type="text" id="projTitle" required placeholder="Projenin adı" />
+                </label>
+                <label class="field">
+                  <span>Yıl & Durum</span>
+                  <div class="field-row">
+                    <input type="text" id="projYear" required placeholder="2026" />
+                    <input type="text" id="projStatus" required placeholder="Aktif" />
+                  </div>
+                </label>
+              </div>
+              <label class="field">
+                <span>Açıklama</span>
+                <textarea id="projDesc" rows="4" required placeholder="Proje ne işe yarıyor, hangi sorunu çözüyor?"></textarea>
+              </label>
+              <label class="field">
+                <span>Teknolojiler (virgülle ayır)</span>
+                <input type="text" id="projStack" required placeholder="Python, TypeScript, React" />
+              </label>
+              <div class="field-row">
+                <label class="field">
+                  <span>GitHub Linki</span>
+                  <input type="url" id="projGithub" required placeholder="https://github.com/..." />
+                </label>
+                <label class="field">
+                  <span>Canlı Link (Opsiyonel)</span>
+                  <input type="text" id="projLive" placeholder="https://... veya #" />
+                </label>
+              </div>
+              <button type="submit" class="btn btn-primary full-btn">Projeyi Yayınla</button>
+            </form>
+          </div>
+
+          <aside class="admin-panel-card">
+            <div class="list-header">
+              <h2>Yayındaki Projeler</h2>
+              <span class="mono-sub" id="projectsListCount">0 proje</span>
+            </div>
+            <div class="items-list" id="listProjects"></div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- 5. SOSYAL MEDYA (INSTAGRAM, LINKEDIN, GITHUB, YOUTUBE) SAYFASI -->
+      <section class="admin-view" id="view-social">
+        <div class="view-header">
+          <div>
+            <span class="section-tag">SOSYAL MEDYA AKIŞI</span>
+            <h1>Instagram, LinkedIn, GitHub & YouTube Gönderisi Ekle</h1>
+            <p class="view-desc">Farklı platformlardaki paylaşımlarını seçip tek tıkla blogundaki sosyal akışa ekle.</p>
+          </div>
+        </div>
+
+        <div class="admin-grid">
+          <div class="admin-panel-card">
+            <h2>Yeni Sosyal Gönderi</h2>
+            <form id="formSocial" class="admin-form">
+              <div class="field">
+                <span>Platform Seç</span>
+                <div class="platform-selector" id="platformSelector">
+                  <button type="button" class="plat-choice active" data-plat="instagram">Instagram</button>
+                  <button type="button" class="plat-choice" data-plat="linkedin">LinkedIn</button>
+                  <button type="button" class="plat-choice" data-plat="github">GitHub</button>
+                  <button type="button" class="plat-choice" data-plat="youtube">YouTube</button>
+                </div>
+                <input type="hidden" id="socPlatform" value="instagram" />
+              </div>
+
+              <div class="field-row">
+                <label class="field">
+                  <span>Tarih</span>
+                  <input type="text" id="socDate" required placeholder="13 Kasım 2026" />
+                </label>
+                <label class="field">
+                  <span>Etkileşim / Metrik</span>
+                  <input type="text" id="socMetric" placeholder="ör. 450 beğeni / ★ 120 yıldız" />
+                </label>
+              </div>
+
+              <label class="field">
+                <span>Gönderi Başlığı</span>
+                <input type="text" id="socTitle" required placeholder="Paylaşım başlığı" />
+              </label>
+
+              <label class="field">
+                <span>Kısa Açıklama / Alıntı</span>
+                <textarea id="socExcerpt" rows="3" required placeholder="Paylaşımının öne çıkan özeti..."></textarea>
+              </label>
+
+              <label class="field hidden" id="ytIdField">
+                <span>YouTube Video ID (Örn: youtube.com/watch?v=<strong>dQw4w9WgXcQ</strong>)</span>
+                <input type="text" id="socYtId" placeholder="dQw4w9WgXcQ" />
+              </label>
+
+              <label class="field">
+                <span>Gönderi Linki</span>
+                <input type="url" id="socUrl" required placeholder="https://..." />
+              </label>
+
+              <div class="field">
+                <span>Görsel Yükle veya URL Gir (Instagram / YouTube için önerilir)</span>
+                <div class="upload-box">
+                  <input type="file" id="socFile" accept="image/*" />
+                  <input type="text" id="socImageUrl" placeholder="Yüklenen görsel yolu veya https://..." />
+                </div>
+                <img id="socPreview" class="upload-preview hidden" alt="Önizleme" />
+              </div>
+
+              <button type="submit" class="btn btn-primary full-btn">Sosyal Gönderiyi Yayınla</button>
+            </form>
+          </div>
+
+          <aside class="admin-panel-card">
+            <div class="list-header">
+              <h2>Yayındaki Sosyal Gönderiler</h2>
+              <span class="mono-sub" id="socialListCount">0 gönderi</span>
+            </div>
+            <div class="items-list" id="listSocial"></div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- 6. PROFİL & KURUMLAR SAYFASI -->
+      <section class="admin-view" id="view-profile">
+        <div class="view-header">
+          <div>
+            <span class="section-tag">PROFİL & KURUMLAR</span>
+            <h1>Hakkımda Bilgileri ve Ziyaret Edilen Kurumlar</h1>
+            <p class="view-desc">Ana sayfadaki biyografini, iletişim e-postanı ve kayan kurumlar şeridini buradan düzenle.</p>
+          </div>
+        </div>
+
+        <div class="admin-panel-card single-col-card">
+          <form id="formProfile" class="admin-form">
+            <div class="field-row">
+              <label class="field">
+                <span>Marka / Navbar Adı</span>
+                <input type="text" id="profBrand" required />
+              </label>
+              <label class="field">
+                <span>Adın Soyadın</span>
+                <input type="text" id="profName" required />
+              </label>
+            </div>
+            <label class="field">
+              <span>Unvan / Rol</span>
+              <input type="text" id="profRole" required />
+            </label>
+            <label class="field">
+              <span>Durum Rozeti (Hero)</span>
+              <input type="text" id="profStatus" required />
+            </label>
+            <label class="field">
+              <span>Hakkımda Yazısı</span>
+              <textarea id="profBio" rows="4" required></textarea>
+            </label>
+            <div class="field-row">
+              <label class="field">
+                <span>E-posta</span>
+                <input type="email" id="profEmail" required />
+              </label>
+              <label class="field">
+                <span>Avatar URL</span>
+                <input type="text" id="profAvatar" required />
+              </label>
+            </div>
+            <label class="field">
+              <span>İlgi Alanları (virgülle ayır)</span>
+              <input type="text" id="profInterests" />
+            </label>
+            <label class="field">
+              <span>Şu An Ne Yapıyorum? (her satır bir madde)</span>
+              <textarea id="profNow" rows="3"></textarea>
+            </label>
+            <label class="field">
+              <span>Ziyaret Edilen Kurumlar / Şirketler (virgülle ayır)</span>
+              <textarea id="profInstitutions" rows="2"></textarea>
+            </label>
+            <button type="submit" class="btn btn-primary full-btn">Profili Kaydet</button>
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="adminToast">İşlem başarılı!</div>
+  <script src="js/admin.js"></script>
+</body>
+</html>
