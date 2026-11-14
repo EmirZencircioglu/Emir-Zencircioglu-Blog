@@ -51,7 +51,7 @@ SECRET_FILE = DATA_DIR / "admin_secret.json"
 FEEDS_FILE = DATA_DIR / "feeds.json"
 
 CONTENT_LOCK = threading.Lock()
-BOT_INTERVAL_SECONDS = 600  # 10 dakikada bir otomatik kontrol
+BOT_INTERVAL_SECONDS = 300  # 5 dakikada bir otomatik kontrol
 BOT_LAST_RUN = {"time": None, "added": 0, "error": None}
 
 SESSION_COOKIE_NAME = "blog_admin_session"
@@ -346,10 +346,51 @@ def run_feed_bot_once() -> dict:
                 save_content(content)
                 added_total += len(new_for_feed)
 
+    # Kayıtlı GitHub kullanıcı adı varsa yeni public repoları da otomatik kontrol et
+    gh_user = (load_content().get("profile", {}).get("githubUsername") or "").strip()
+    if gh_user:
+        try:
+            added_total += sync_github_user_repos(gh_user)
+        except Exception as e:
+            errors.append(f"GitHub: {e}")
+
     BOT_LAST_RUN["time"] = datetime.now().strftime("%H:%M:%S")
     BOT_LAST_RUN["added"] = added_total
     BOT_LAST_RUN["error"] = "; ".join(errors) if errors else None
     return {"added": added_total, "errors": errors, "lastRun": BOT_LAST_RUN["time"]}
+
+
+def sync_github_user_repos(gh_user: str) -> int:
+    repos = fetch_github_repos(gh_user)
+    with CONTENT_LOCK:
+        content = load_content()
+        content.setdefault("profile", {})["githubUsername"] = gh_user
+        existing_urls = {p.get("url") for p in content.get("socialPosts", [])}
+        added = 0
+        for repo in reversed(repos):
+            if repo.get("fork"):
+                continue
+            repo_url = repo.get("html_url")
+            if not repo_url or repo_url in existing_urls:
+                continue
+            lang = repo.get("language") or "Kod"
+            stars = repo.get("stargazers_count", 0)
+            new_post = {
+                "id": f"gh-{uuid.uuid4().hex[:8]}",
+                "platform": "github",
+                "platformLabel": "GitHub",
+                "date": format_tr_date(),
+                "title": repo.get("name", "GitHub Projesi"),
+                "excerpt": repo.get("description") or "GitHub üzerinde paylaşılan yeni açık kaynak depo.",
+                "image": None,
+                "metric": f"★ {stars} yıldız · {lang}",
+                "url": repo_url,
+            }
+            content.setdefault("socialPosts", []).insert(0, new_post)
+            existing_urls.add(repo_url)
+            added += 1
+        save_content(content)
+        return added
 
 
 def start_feed_bot_thread():
@@ -357,7 +398,8 @@ def start_feed_bot_thread():
         time.sleep(15)
         while True:
             try:
-                if load_feeds():
+                has_gh = bool((load_content().get("profile", {}).get("githubUsername") or "").strip())
+                if load_feeds() or has_gh:
                     run_feed_bot_once()
             except Exception as e:
                 sys.stderr.write(f"[FeedBot] Hata: {e}\n")
@@ -645,7 +687,7 @@ class BlogHandler(BaseHTTPRequestHandler):
                 self._send_json(400, {"error": "GitHub kullanıcı adı gerekli."})
                 return
             try:
-                repos = fetch_github_repos(gh_user)
+                added = sync_github_user_repos(gh_user)
             except urllib.error.HTTPError as e:
                 self._send_json(400, {"error": f"GitHub API hatası: {e.code}"})
                 return
@@ -653,34 +695,6 @@ class BlogHandler(BaseHTTPRequestHandler):
                 self._send_json(500, {"error": f"GitHub bağlantısı başarısız: {e}"})
                 return
 
-            content = load_content()
-            content.setdefault("profile", {})["githubUsername"] = gh_user
-            existing_urls = {p.get("url") for p in content.get("socialPosts", [])}
-            added = 0
-            for repo in repos:
-                if repo.get("fork"):
-                    continue
-                repo_url = repo.get("html_url")
-                if not repo_url or repo_url in existing_urls:
-                    continue
-                lang = repo.get("language") or "Kod"
-                stars = repo.get("stargazers_count", 0)
-                new_post = {
-                    "id": f"gh-{uuid.uuid4().hex[:8]}",
-                    "platform": "github",
-                    "platformLabel": "GitHub",
-                    "date": format_tr_date(),
-                    "title": repo.get("name", "GitHub Projesi"),
-                    "excerpt": repo.get("description") or "GitHub üzerinde paylaşılan yeni açık kaynak depo.",
-                    "image": None,
-                    "metric": f"★ {stars} yıldız · {lang}",
-                    "url": repo_url,
-                }
-                content.setdefault("socialPosts", []).insert(0, new_post)
-                existing_urls.add(repo_url)
-                added += 1
-
-            save_content(content)
             self._send_json(200, {"ok": True, "added": added, "username": gh_user})
             return
 
