@@ -426,8 +426,36 @@
         </div>
 
         <div class="admin-grid">
-          <!-- GitHub Tek Tıkla Senkronizasyon -->
+          <!-- GitHub & RSS Bot -->
           <div class="admin-panel-card">
+            <h2>7/24 Otomatik Takip Botu (Instagram & LinkedIn)</h2>
+            <p class="view-desc" style="margin-bottom: 14px;">Facebook girişi gerekmeden: <strong>rss.app</strong> veya <strong>fetchrss</strong> üzerinden Instagram / LinkedIn profilin için aldığın RSS adresini buraya ekle. Sunucu botu her 10 dakikada bir kontrol edip yeni gönderileri otomatik yayınlar.</p>
+            <form id="formFeedBot" class="admin-form">
+              <div class="field-row">
+                <label class="field">
+                  <span>Platform</span>
+                  <select id="feedPlatform" required>
+                    <option value="instagram">Instagram</option>
+                    <option value="linkedin">LinkedIn</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="github">GitHub</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>RSS / Feed URL</span>
+                  <input type="url" id="feedUrl" required placeholder="https://rss.app/feeds/..." />
+                </label>
+              </div>
+              <div class="field-row">
+                <button type="submit" class="btn btn-primary btn-sm">Bot Takibine Ekle</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="runBotNowBtn">Botu Şimdi Çalıştır</button>
+              </div>
+            </form>
+            <div class="items-list" id="feedsList" style="margin-top: 14px; max-height: 220px;"></div>
+            <p class="mono-sub" id="botStatusText" style="margin-top: 10px;"></p>
+
+            <hr class="admin-divider" />
+
             <h2>GitHub Repolarını Çek</h2>
             <p class="view-desc" style="margin-bottom: 18px;">GitHub kullanıcı adını girerek son güncellediğin açık kaynak depolarını tek tıkla sosyal akışına aktarabilirsin.</p>
             <form id="formGithubSync" class="admin-form">

@@ -244,9 +244,81 @@ async function loadAutomationInfo() {
     const tokenInput = document.getElementById("igAccessToken");
     if (tokenInput) tokenInput.placeholder = "Token sunucuda kayıtlı (değiştirmek için yaz)";
   }
+  renderFeedsList(info.feeds || []);
+  const statusEl = document.getElementById("botStatusText");
+  if (statusEl && info.botLastRun?.time) {
+    statusEl.textContent = `Son bot kontrolü: ${info.botLastRun.time} · Eklenen: ${info.botLastRun.added}${info.botLastRun.error ? ` · Hata: ${info.botLastRun.error}` : ""}`;
+  }
+}
+
+function renderFeedsList(feeds) {
+  const wrap = document.getElementById("feedsList");
+  if (!wrap) return;
+  if (feeds.length === 0) {
+    wrap.innerHTML = `<p class="mono-sub">Henüz takip edilen RSS/Feed adresi yok.</p>`;
+    return;
+  }
+  wrap.innerHTML = feeds
+    .map(
+      (f) => `
+      <div class="admin-item-row">
+        <div class="admin-item-info">
+          <div class="admin-item-title">${escapeHtml(f.platform.toUpperCase())}</div>
+          <div class="admin-item-meta">${escapeHtml(f.feedUrl)}</div>
+        </div>
+        <button type="button" class="delete-btn" data-del-feed="${escapeHtml(f.id)}">Kaldır</button>
+      </div>
+    `
+    )
+    .join("");
+
+  wrap.querySelectorAll("[data-del-feed]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const res = await fetch("/api/admin/feeds", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: btn.dataset.delFeed }),
+      });
+      if (res.ok) {
+        showToast("Bot takibinden kaldırıldı.");
+        await loadAutomationInfo();
+      }
+    });
+  });
 }
 
 function initAutomationControls() {
+  document.getElementById("formFeedBot")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const platform = val("feedPlatform");
+    const feedUrl = val("feedUrl");
+    const res = await fetch("/api/admin/feeds", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ platform, feedUrl }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      e.target.reset();
+      showToast("Takip botuna eklendi!");
+      await loadAutomationInfo();
+    } else {
+      showToast(data.error || "Feed eklenemedi.", true);
+    }
+  });
+
+  document.getElementById("runBotNowBtn")?.addEventListener("click", async () => {
+    showToast("Bot çalıştırılıyor...");
+    const res = await fetch("/api/admin/feeds/run", { method: "POST" });
+    const data = await res.json();
+    if (res.ok) {
+      showToast(`Bot tamamlandı! ${data.added} yeni gönderi eklendi.`);
+      await loadAdminContent();
+    } else {
+      showToast(data.error || "Bot çalıştırılamadı.", true);
+    }
+  });
+
   document.getElementById("copyWebhookUrlBtn")?.addEventListener("click", async () => {
     await navigator.clipboard?.writeText(val("webhookUrlInput"));
     showToast("Webhook URL kopyalandı!");

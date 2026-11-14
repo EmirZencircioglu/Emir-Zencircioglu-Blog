@@ -16,17 +16,21 @@ import base64
 import getpass
 import hashlib
 import hmac
+import html
 import http.cookies
 import json
 import mimetypes
 import os
+import re
 import secrets
 import shutil
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
 import uuid
+import xml.etree.ElementTree as ET
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -44,6 +48,11 @@ else:
 
 CONTENT_FILE = DATA_DIR / "content.json"
 SECRET_FILE = DATA_DIR / "admin_secret.json"
+FEEDS_FILE = DATA_DIR / "feeds.json"
+
+CONTENT_LOCK = threading.Lock()
+BOT_INTERVAL_SECONDS = 600  # 10 dakikada bir otomatik kontrol
+BOT_LAST_RUN = {"time": None, "added": 0, "error": None}
 
 SESSION_COOKIE_NAME = "blog_admin_session"
 SESSION_TTL_SECONDS = 60 * 60 * 24 * 7  # 7 gün
@@ -194,6 +203,170 @@ def save_content(data: dict):
     os.replace(tmp, CONTENT_FILE)
 
 
+def load_feeds() -> list[dict]:
+    if not FEEDS_FILE.exists():
+        return []
+    with FEEDS_FILE.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_feeds(feeds: list[dict]):
+    ensure_dirs()
+    tmp = FEEDS_FILE.with_suffix(".tmp")
+    with tmp.open("w", encoding="utf-8") as f:
+        json.dump(feeds, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, FEEDS_FILE)
+
+
+def _strip_html(raw: str) -> str:
+    text = re.sub(r"<[^>]+>", " ", raw or "")
+    text = html.unescape(text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _extract_img_from_html(raw_html: str) -> str | None:
+    if not raw_html:
+        return None
+    m = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', raw_html, re.IGNORECASE)
+    return html.unescape(m.group(1)) if m else None
+
+
+def parse_feed_items(xml_bytes: bytes) -> list[dict]:
+    root = ET.fromstring(xml_bytes)
+    items = []
+
+    # RSS 2.0 (<channel><item>...)
+    for item in root.findall(".//item"):
+        title = (item.findtext("title") or "").strip()
+        link = (item.findtext("link") or "").strip()
+        desc_raw = item.findtext("description") or ""
+        content_encoded = ""
+        for child in item:
+            if child.tag.endswith("encoded") and child.text:
+                content_encoded = child.text
+                break
+
+        img_url = None
+        enclosure = item.find("enclosure")
+        if enclosure is not None and (enclosure.attrib.get("type") or "").startswith("image/"):
+            img_url = enclosure.attrib.get("url")
+        if not img_url:
+            for child in item:
+                if child.tag.endswith("content") or child.tag.endswith("thumbnail"):
+                    cand = child.attrib.get("url")
+                    if cand:
+                        img_url = cand
+                        break
+        if not img_url:
+            img_url = _extract_img_from_html(content_encoded or desc_raw)
+
+        excerpt = _strip_html(desc_raw or content_encoded)[:240]
+        if link:
+            items.append({
+                "title": _strip_html(title)[:120] or "Yeni Paylaşım",
+                "url": link,
+                "excerpt": excerpt,
+                "image": img_url,
+            })
+
+    # Atom (<feed><entry>...)
+    if not items:
+        ns = {"atom": "http://www.w3.org/2005/Atom"}
+        entries = root.findall(".//atom:entry", ns) or root.findall(".//entry")
+        for entry in entries:
+            title_el = entry.find("atom:title", ns) or entry.find("title")
+            link_el = entry.find("atom:link", ns) or entry.find("link")
+            sum_el = entry.find("atom:summary", ns) or entry.find("summary") or entry.find("atom:content", ns) or entry.find("content")
+            title = (title_el.text if title_el is not None and title_el.text else "").strip()
+            link = (link_el.attrib.get("href", "") if link_el is not None else "").strip()
+            raw_body = sum_el.text if sum_el is not None and sum_el.text else ""
+            if link:
+                items.append({
+                    "title": _strip_html(title)[:120] or "Yeni Paylaşım",
+                    "url": link,
+                    "excerpt": _strip_html(raw_body)[:240],
+                    "image": _extract_img_from_html(raw_body),
+                })
+
+    return items[:10]
+
+
+def run_feed_bot_once() -> dict:
+    feeds = load_feeds()
+    platform_labels = {
+        "instagram": "Instagram",
+        "linkedin": "LinkedIn",
+        "github": "GitHub",
+        "youtube": "YouTube",
+    }
+    added_total = 0
+    errors = []
+
+    for feed in feeds:
+        feed_url = (feed.get("feedUrl") or "").strip()
+        platform = (feed.get("platform") or "").strip().lower()
+        if not feed_url or platform not in platform_labels:
+            continue
+        try:
+            req = urllib.request.Request(
+                feed_url,
+                headers={"User-Agent": "PersonalBlogBot/1.0"},
+            )
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                xml_bytes = resp.read(2 * 1024 * 1024)
+            parsed_items = parse_feed_items(xml_bytes)
+        except Exception as e:
+            errors.append(f"{platform_labels[platform]}: {e}")
+            continue
+
+        with CONTENT_LOCK:
+            content = load_content()
+            existing_urls = {p.get("url") for p in content.get("socialPosts", [])}
+            new_for_feed = []
+            for entry in parsed_items:
+                if entry["url"] in existing_urls:
+                    continue
+                saved_img = download_image_safely(entry["image"]) if entry.get("image") else None
+                new_for_feed.append({
+                    "id": f"bot-{uuid.uuid4().hex[:8]}",
+                    "platform": platform,
+                    "platformLabel": platform_labels[platform],
+                    "date": format_tr_date(),
+                    "title": entry["title"],
+                    "excerpt": entry["excerpt"] or f"Yeni {platform_labels[platform]} paylaşımı.",
+                    "image": saved_img,
+                    "metric": "Otomatik Bot",
+                    "url": entry["url"],
+                })
+                existing_urls.add(entry["url"])
+
+            if new_for_feed:
+                for post in reversed(new_for_feed):
+                    content.setdefault("socialPosts", []).insert(0, post)
+                save_content(content)
+                added_total += len(new_for_feed)
+
+    BOT_LAST_RUN["time"] = datetime.now().strftime("%H:%M:%S")
+    BOT_LAST_RUN["added"] = added_total
+    BOT_LAST_RUN["error"] = "; ".join(errors) if errors else None
+    return {"added": added_total, "errors": errors, "lastRun": BOT_LAST_RUN["time"]}
+
+
+def start_feed_bot_thread():
+    def loop():
+        time.sleep(15)
+        while True:
+            try:
+                if load_feeds():
+                    run_feed_bot_once()
+            except Exception as e:
+                sys.stderr.write(f"[FeedBot] Hata: {e}\n")
+            time.sleep(BOT_INTERVAL_SECONDS)
+
+    t = threading.Thread(target=loop, daemon=True)
+    t.start()
+
+
 def create_session_token(username: str, session_secret: str) -> str:
     exp = int(time.time()) + SESSION_TTL_SECONDS
     payload = f"{username}|{exp}"
@@ -330,6 +503,8 @@ class BlogHandler(BaseHTTPRequestHandler):
                     "githubUsername": content.get("profile", {}).get("githubUsername", ""),
                     "igUserId": secret_data.get("ig_user_id", ""),
                     "igConfigured": bool(secret_data.get("ig_access_token")),
+                    "feeds": load_feeds(),
+                    "botLastRun": BOT_LAST_RUN,
                 },
             )
             return
@@ -430,6 +605,29 @@ class BlogHandler(BaseHTTPRequestHandler):
         user = self._get_authenticated_user()
         if not user:
             self._send_json(401, {"error": "Yetkisiz erişim. Lütfen giriş yap."})
+            return
+
+        if path == "/api/admin/feeds":
+            body = self._read_json_body(4096) or {}
+            platform = str(body.get("platform", "")).strip().lower()
+            feed_url = str(body.get("feedUrl", "")).strip()
+            if platform not in {"instagram", "linkedin", "github", "youtube"} or not feed_url.startswith(("http://", "https://")):
+                self._send_json(400, {"error": "Geçerli bir platform ve https:// RSS adresi gir."})
+                return
+            feeds = load_feeds()
+            new_feed = {
+                "id": f"feed-{uuid.uuid4().hex[:8]}",
+                "platform": platform,
+                "feedUrl": feed_url,
+            }
+            feeds.append(new_feed)
+            save_feeds(feeds)
+            self._send_json(201, {"ok": True, "feed": new_feed})
+            return
+
+        if path == "/api/admin/feeds/run":
+            result = run_feed_bot_once()
+            self._send_json(200, {"ok": True, **result})
             return
 
         if path == "/api/admin/automation/rotate-secret":
@@ -582,6 +780,15 @@ class BlogHandler(BaseHTTPRequestHandler):
                 f.write(raw_bytes)
 
             self._send_json(201, {"ok": True, "url": f"/uploads/{safe_name}"})
+            return
+
+        if path == "/api/admin/feeds":
+            body = self._read_json_body(4096) or {}
+            feed_id = body.get("id")
+            feeds = load_feeds()
+            new_feeds = [f for f in feeds if f.get("id") != feed_id]
+            save_feeds(new_feeds)
+            self._send_json(200, {"ok": True})
             return
 
         if path == "/api/admin/item":
@@ -762,6 +969,15 @@ class BlogHandler(BaseHTTPRequestHandler):
             self._send_json(401, {"error": "Yetkisiz erişim."})
             return
 
+        if path == "/api/admin/feeds":
+            body = self._read_json_body(4096) or {}
+            feed_id = body.get("id")
+            feeds = load_feeds()
+            new_feeds = [f for f in feeds if f.get("id") != feed_id]
+            save_feeds(new_feeds)
+            self._send_json(200, {"ok": True})
+            return
+
         if path == "/api/admin/item":
             body = self._read_json_body(16 * 1024)
             if not body:
@@ -871,6 +1087,7 @@ def main():
         reset_password_cli()
         return
 
+    start_feed_bot_thread()
     server = ThreadingHTTPServer((args.host, args.port), BlogHandler)
     print(f"Blog sunucusu çalışıyor: http://localhost:{args.port}")
     print(f"Admin paneli adresi:     http://localhost:{args.port}/admin")
