@@ -239,11 +239,6 @@ async function loadAutomationInfo() {
   setVal("webhookUrlInput", `${window.location.origin}${info.webhookPath}`);
   setVal("webhookSecretInput", info.webhookSecret);
   if (info.githubUsername) setVal("ghUsername", info.githubUsername);
-  if (info.igUserId) setVal("igUserId", info.igUserId);
-  if (info.igConfigured) {
-    const tokenInput = document.getElementById("igAccessToken");
-    if (tokenInput) tokenInput.placeholder = "Token sunucuda kayıtlı (değiştirmek için yaz)";
-  }
   renderFeedsList(info.feeds || []);
   const statusEl = document.getElementById("botStatusText");
   if (statusEl && info.botLastRun?.time) {
@@ -357,54 +352,6 @@ function initAutomationControls() {
       showToast(data.error || "GitHub senkronizasyonu başarısız.", true);
     }
   });
-
-  document.getElementById("formInstagramSync")?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const igUserId = val("igUserId");
-    const igAccessToken = val("igAccessToken");
-    const res = await fetch("/api/admin/sync/instagram", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ igUserId, igAccessToken }),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      showToast(`${data.added} yeni Instagram gönderisi eklendi!`);
-      setVal("igAccessToken", "");
-      await loadAdminContent();
-    } else {
-      showToast(data.error || "Instagram senkronizasyonu başarısız.", true);
-    }
-  });
-
-  document.getElementById("testIgWebhookBtn")?.addEventListener("click", () => sendTestWebhook("instagram"));
-  document.getElementById("testLiWebhookBtn")?.addEventListener("click", () => sendTestWebhook("linkedin"));
-}
-
-async function sendTestWebhook(platform) {
-  const secret = val("webhookSecretInput");
-  const isIg = platform === "instagram";
-  const payload = {
-    platform,
-    title: isIg ? "Test Instagram Paylaşımı" : "Test LinkedIn Paylaşımı",
-    excerpt: "Webhook bağlantısı başarıyla test edildi! Bu test gönderisini Sosyal Medya sekmesinden silebilirsin.",
-    url: isIg ? "https://instagram.com" : "https://linkedin.com",
-    metric: "Webhook Testi",
-  };
-  const res = await fetch("/api/webhook/social", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Webhook-Secret": secret,
-    },
-    body: JSON.stringify(payload),
-  });
-  if (res.ok) {
-    showToast(`${isIg ? "Instagram" : "LinkedIn"} test webhook'u başarılı!`);
-    await loadAdminContent();
-  } else {
-    showToast("Test webhook başarısız.", true);
-  }
 }
 
 function updateOverviewCounts(content) {

@@ -420,23 +420,22 @@
         <div class="view-header">
           <div>
             <span class="section-tag">OTOMASYON & WEBHOOK</span>
-            <h1>GitHub, Instagram & LinkedIn Otomatik Paylaşım</h1>
-            <p class="view-desc">Diğer platformlarda paylaştığın anda gönderilerin bloguna otomatik düşmesi için bağlantıları buradan yönet.</p>
+            <h1>Instagram, YouTube & GitHub Otomasyonu</h1>
+            <p class="view-desc">Instagram ve YouTube paylaşımlarını 7/24 takip botuyla, GitHub repolarını tek tıkla veya webhook ile otomatik aktar.</p>
           </div>
         </div>
 
         <div class="admin-grid">
           <!-- GitHub & RSS Bot -->
           <div class="admin-panel-card">
-            <h2>7/24 Otomatik Takip Botu (Instagram & LinkedIn)</h2>
-            <p class="view-desc" style="margin-bottom: 14px;">Facebook girişi gerekmeden: <strong>rss.app</strong> veya <strong>fetchrss</strong> üzerinden Instagram / LinkedIn profilin için aldığın RSS adresini buraya ekle. Sunucu botu her 10 dakikada bir kontrol edip yeni gönderileri otomatik yayınlar.</p>
+            <h2>7/24 Otomatik Takip Botu</h2>
+            <p class="view-desc" style="margin-bottom: 14px;"><strong>rss.app</strong> üzerinden Instagram veya YouTube kanalın için aldığın RSS adresini ekle. Sunucu botu her 10 dakikada bir kontrol edip yeni gönderileri otomatik yayınlar.</p>
             <form id="formFeedBot" class="admin-form">
               <div class="field-row">
                 <label class="field">
                   <span>Platform</span>
                   <select id="feedPlatform" required>
                     <option value="instagram">Instagram</option>
-                    <option value="linkedin">LinkedIn</option>
                     <option value="youtube">YouTube</option>
                     <option value="github">GitHub</option>
                   </select>
@@ -468,26 +467,8 @@
 
             <hr class="admin-divider" />
 
-            <h2>Instagram Doğrudan Çekme (Graph API)</h2>
-            <p class="view-desc" style="margin-bottom: 14px;">Meta / Instagram Access Token'ın varsa bilgilerini kaydet; tek tıkla son Instagram gönderilerini ve fotoğraflarını çekebilirsin.</p>
-            <form id="formInstagramSync" class="admin-form">
-              <div class="field-row">
-                <label class="field">
-                  <span>Instagram Kullanıcı ID</span>
-                  <input type="text" id="igUserId" placeholder="ör. 17841400..." />
-                </label>
-                <label class="field">
-                  <span>Instagram Access Token</span>
-                  <input type="password" id="igAccessToken" placeholder="Kayıtlı değilse gir" />
-                </label>
-              </div>
-              <button type="submit" class="btn btn-primary full-btn" id="igSyncBtn">Instagram Gönderilerini Çek</button>
-            </form>
-
-            <hr class="admin-divider" />
-
-            <h2>Anlık Webhook Bilgileri</h2>
-            <p class="view-desc" style="margin-bottom: 16px;">GitHub Webhooks, Make.com, Zapier veya n8n üzerinden anlık gönderi aktarmak için aşağıdaki adresi ve gizli anahtarı kullan:</p>
+            <h2>GitHub Anlık Webhook Bilgileri</h2>
+            <p class="view-desc" style="margin-bottom: 16px;">GitHub repolarına yeni kod veya sürüm attığında bloguna anında düşmesi için aşağıdaki bilgileri kullan:</p>
 
             <div class="admin-form">
               <label class="field">
@@ -498,35 +479,27 @@
                 </div>
               </label>
               <label class="field">
-                <span>Gizli Webhook Anahtarı (X-Webhook-Secret / GitHub Secret)</span>
+                <span>Gizli Webhook Anahtarı (Secret)</span>
                 <div class="copy-row">
                   <input type="text" id="webhookSecretInput" readonly />
                   <button type="button" class="btn btn-ghost btn-sm" id="copyWebhookSecretBtn">Kopyala</button>
                   <button type="button" class="btn btn-ghost btn-sm" id="rotateSecretBtn">Yenile</button>
                 </div>
               </label>
-              <div class="field-row" style="margin-top: 6px;">
-                <button type="button" class="btn btn-ghost btn-sm" id="testIgWebhookBtn">Instagram Webhook Test Et</button>
-                <button type="button" class="btn btn-ghost btn-sm" id="testLiWebhookBtn">LinkedIn Webhook Test Et</button>
-              </div>
             </div>
           </div>
 
-          <!-- Kurulum Rehberi & Test -->
+          <!-- Kurulum Rehberi -->
           <aside class="admin-panel-card">
-            <h2>Platform Bağlantı Rehberi</h2>
+            <h2>Nasıl Çalışır?</h2>
             <div class="guide-blocks">
               <div class="guide-item">
-                <strong>1. GitHub (Anlık Push / Release)</strong>
+                <strong>1. Instagram & YouTube (7/24 Takip Botu)</strong>
+                <p>Soldan eklediğin <code>rss.app</code> veya YouTube RSS adresleri sunucu tarafından 10 dakikada bir otomatik taranır. Yeni paylaşım bulunduğunda fotoğrafıyla birlikte bloguna eklenir.</p>
+              </div>
+              <div class="guide-item">
+                <strong>2. GitHub (Anlık Push / Release)</strong>
                 <p>GitHub reponda <code>Settings → Webhooks → Add webhook</code> bölümüne gir. <strong>Payload URL</strong> kısmına yukarıdaki Webhook URL'ini, <strong>Content type</strong> olarak <code>application/json</code>, <strong>Secret</strong> kısmına da Gizli Anahtarı yapıştır.</p>
-              </div>
-              <div class="guide-item">
-                <strong>2. Instagram (Make.com / n8n)</strong>
-                <p>Make.com veya n8n'de <em>"Instagram: Watch Media"</em> modülünü <em>"HTTP: Make a Request (POST)"</em> modülüne bağla. Header'a <code>X-Webhook-Secret</code> ekle, Body olarak <code>platform: "instagram"</code>, <code>title</code>, <code>excerpt</code>, <code>image</code> ve <code>url</code> gönder.</p>
-              </div>
-              <div class="guide-item">
-                <strong>3. LinkedIn (Make.com / n8n)</strong>
-                <p>Aynı şekilde LinkedIn paylaşım tetikleyicisini aynı Webhook URL'ine <code>platform: "linkedin"</code> JSON'u gönderecek şekilde bağlayabilirsin.</p>
               </div>
             </div>
           </aside>
