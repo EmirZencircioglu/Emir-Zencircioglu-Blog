@@ -199,10 +199,6 @@
                 <span>İçerik (Her paragrafı boş bir satırla ayır)</span>
                 <textarea id="ideaContent" rows="8" required placeholder="Birinci paragraf...&#10;&#10;İkinci paragraf..."></textarea>
               </label>
-              <label class="checkbox-row">
-                <input type="checkbox" id="ideaShareLi" />
-                <span>Yayınlarken aynı anda LinkedIn profilimde de otomatik paylaş (Make.com)</span>
-              </label>
               <button type="submit" class="btn btn-primary full-btn">Blog Yazısını Yayınla</button>
             </form>
           </div>
@@ -405,11 +401,6 @@
                 <img id="socPreview" class="upload-preview hidden" alt="Önizleme" />
               </div>
 
-              <label class="checkbox-row">
-                <input type="checkbox" id="socShareLi" />
-                <span>Aynı anda LinkedIn profilimde de otomatik paylaş (Make.com)</span>
-              </label>
-
               <button type="submit" class="btn btn-primary full-btn">Sosyal Gönderiyi Yayınla</button>
             </form>
           </div>
@@ -462,18 +453,6 @@
             </form>
             <div class="items-list" id="feedsList" style="margin-top: 14px; max-height: 220px;"></div>
             <p class="mono-sub" id="botStatusText" style="margin-top: 10px;"></p>
-
-            <hr class="admin-divider" />
-
-            <h2>Blogdan LinkedIn'e Otomatik Paylaşım (Make.com)</h2>
-            <p class="view-desc" style="margin-bottom: 14px;">Make.com'da <strong>Webhooks → Custom webhook</strong> oluşturup aldığın adresi buraya kaydet. Blog yazısı veya sosyal gönderi eklerken kutucuğu işaretlersen kişisel LinkedIn profilinde de otomatik paylaşılır.</p>
-            <form id="formOutgoingLinkedin" class="admin-form">
-              <label class="field">
-                <span>Make.com Custom Webhook URL</span>
-                <input type="url" id="outgoingLinkedinWebhook" placeholder="https://hook.eu2.make.com/..." />
-              </label>
-              <button type="submit" class="btn btn-primary full-btn">LinkedIn Webhook Adresini Kaydet</button>
-            </form>
 
             <hr class="admin-divider" />
 

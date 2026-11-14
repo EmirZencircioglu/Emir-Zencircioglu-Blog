@@ -503,7 +503,6 @@ class BlogHandler(BaseHTTPRequestHandler):
                     "githubUsername": content.get("profile", {}).get("githubUsername", ""),
                     "igUserId": secret_data.get("ig_user_id", ""),
                     "igConfigured": bool(secret_data.get("ig_access_token")),
-                    "outgoingLinkedinWebhook": secret_data.get("outgoing_linkedin_webhook", ""),
                     "feeds": load_feeds(),
                     "botLastRun": BOT_LAST_RUN,
                 },
@@ -629,18 +628,6 @@ class BlogHandler(BaseHTTPRequestHandler):
         if path == "/api/admin/feeds/run":
             result = run_feed_bot_once()
             self._send_json(200, {"ok": True, **result})
-            return
-
-        if path == "/api/admin/automation/outgoing":
-            body = self._read_json_body(4096) or {}
-            hook_url = str(body.get("outgoingLinkedinWebhook") or "").strip()
-            if hook_url and not hook_url.startswith(("http://", "https://")):
-                self._send_json(400, {"error": "Geçerli bir https:// Make.com Webhook URL gir."})
-                return
-            secret_data = load_secret() or {}
-            secret_data["outgoing_linkedin_webhook"] = hook_url
-            _write_secret_file(secret_data)
-            self._send_json(200, {"ok": True})
             return
 
         if path == "/api/admin/automation/rotate-secret":
@@ -818,34 +805,11 @@ class BlogHandler(BaseHTTPRequestHandler):
             if not item.get("id"):
                 item["id"] = f"{section[:3]}-{uuid.uuid4().hex[:8]}"
 
-            content = load_content()
-            content.setdefault(section, []).insert(0, item)
-            save_content(content)
-
-            linkedin_shared = False
-            if body.get("shareToLinkedIn"):
-                secret_data = load_secret() or {}
-                hook_url = (secret_data.get("outgoing_linkedin_webhook") or "").strip()
-                if hook_url:
-                    try:
-                        li_payload = json.dumps({
-                            "section": section,
-                            "title": item.get("title", ""),
-                            "text": item.get("summary") or item.get("excerpt") or item.get("description") or "",
-                            "url": item.get("url") or item.get("liveUrl") or item.get("githubUrl") or "https://emirzencircioglu.me",
-                        }, ensure_ascii=False).encode("utf-8")
-                        req = urllib.request.Request(
-                            hook_url,
-                            data=li_payload,
-                            headers={"Content-Type": "application/json", "User-Agent": "PersonalBlog/1.0"},
-                            method="POST",
-                        )
-                        with urllib.request.urlopen(req, timeout=8):
-                            linkedin_shared = True
-                    except Exception:
-                        linkedin_shared = False
-
-            self._send_json(201, {"ok": True, "item": item, "linkedinShared": linkedin_shared})
+            with CONTENT_LOCK:
+                content = load_content()
+                content.setdefault(section, []).insert(0, item)
+                save_content(content)
+            self._send_json(201, {"ok": True, "item": item})
             return
 
         self._send_json(404, {"error": "Bilinmeyen uç nokta."})

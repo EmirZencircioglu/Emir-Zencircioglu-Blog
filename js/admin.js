@@ -244,9 +244,6 @@ async function loadAutomationInfo() {
     const tokenInput = document.getElementById("igAccessToken");
     if (tokenInput) tokenInput.placeholder = "Token sunucuda kayıtlı (değiştirmek için yaz)";
   }
-  if (info.outgoingLinkedinWebhook) {
-    setVal("outgoingLinkedinWebhook", info.outgoingLinkedinWebhook);
-  }
   renderFeedsList(info.feeds || []);
   const statusEl = document.getElementById("botStatusText");
   if (statusEl && info.botLastRun?.time) {
@@ -291,22 +288,6 @@ function renderFeedsList(feeds) {
 }
 
 function initAutomationControls() {
-  document.getElementById("formOutgoingLinkedin")?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const outgoingLinkedinWebhook = val("outgoingLinkedinWebhook");
-    const res = await fetch("/api/admin/automation/outgoing", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ outgoingLinkedinWebhook }),
-    });
-    if (res.ok) {
-      showToast("Make.com LinkedIn webhook adresi kaydedildi!");
-    } else {
-      const data = await res.json().catch(() => ({}));
-      showToast(data.error || "Kaydedilemedi.", true);
-    }
-  });
-
   document.getElementById("formFeedBot")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const platform = val("feedPlatform");
@@ -530,8 +511,7 @@ function initPublishForms() {
     const ytId = val("socYtId");
     if (platform === "youtube" && ytId) item.youtubeId = ytId;
 
-    const shareToLinkedIn = Boolean(document.getElementById("socShareLi")?.checked);
-    await publishItem("socialPosts", item, e.target, "socPreview", shareToLinkedIn);
+    await publishItem("socialPosts", item, e.target, "socPreview");
   });
 
   // Blog / Idea
@@ -550,8 +530,7 @@ function initPublishForms() {
       summary: val("ideaSummary"),
       content: paragraphs,
     };
-    const shareToLinkedIn = Boolean(document.getElementById("ideaShareLi")?.checked);
-    await publishItem("ideas", item, e.target, null, shareToLinkedIn);
+    await publishItem("ideas", item, e.target);
   });
 
   // Event / Summit
@@ -626,18 +605,17 @@ function initPublishForms() {
   });
 }
 
-async function publishItem(section, item, form, previewId, shareToLinkedIn = false) {
+async function publishItem(section, item, form, previewId) {
   const res = await fetch("/api/admin/item", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ section, item, shareToLinkedIn }),
+    body: JSON.stringify({ section, item }),
   });
 
   if (res.ok) {
-    const data = await res.json().catch(() => ({}));
     form.reset();
     if (previewId) document.getElementById(previewId)?.classList.add("hidden");
-    showToast(data.linkedinShared ? "Yayınlandı ve LinkedIn'e gönderildi!" : "İçerik başarıyla yayınlandı!");
+    showToast("İçerik başarıyla yayınlandı!");
     await loadAdminContent();
   } else {
     const data = await res.json().catch(() => ({}));
