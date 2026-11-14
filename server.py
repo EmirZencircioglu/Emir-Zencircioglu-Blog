@@ -328,6 +328,8 @@ class BlogHandler(BaseHTTPRequestHandler):
                     "webhookPath": "/api/webhook/social",
                     "webhookSecret": secret_data.get("webhook_secret", ""),
                     "githubUsername": content.get("profile", {}).get("githubUsername", ""),
+                    "igUserId": secret_data.get("ig_user_id", ""),
+                    "igConfigured": bool(secret_data.get("ig_access_token")),
                 },
             )
             return
@@ -482,6 +484,68 @@ class BlogHandler(BaseHTTPRequestHandler):
 
             save_content(content)
             self._send_json(200, {"ok": True, "added": added, "username": gh_user})
+            return
+
+        if path == "/api/admin/sync/instagram":
+            body = self._read_json_body(8192) or {}
+            secret_data = load_secret() or {}
+            ig_user_id = str(body.get("igUserId") or secret_data.get("ig_user_id") or "").strip()
+            ig_token = str(body.get("igAccessToken") or secret_data.get("ig_access_token") or "").strip()
+
+            if not ig_user_id or not ig_token:
+                self._send_json(400, {"error": "Instagram Kullanıcı ID ve Access Token gerekli."})
+                return
+
+            # Bilgileri şifreli sunucu dosyasında sakla (sonraki senkronizasyonlarda tekrar girmek gerekmez)
+            if body.get("igUserId") or body.get("igAccessToken"):
+                secret_data["ig_user_id"] = ig_user_id
+                secret_data["ig_access_token"] = ig_token
+                _write_secret_file(secret_data)
+
+            api_url = (
+                f"https://graph.instagram.com/{ig_user_id}/media"
+                f"?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp"
+                f"&limit=8&access_token={urllib.request.quote(ig_token)}"
+            )
+            try:
+                req = urllib.request.Request(api_url, headers={"User-Agent": "PersonalBlogSync/1.0"})
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    ig_resp = json.loads(resp.read().decode("utf-8"))
+            except urllib.error.HTTPError as e:
+                self._send_json(400, {"error": f"Instagram Graph API hatası: {e.code}"})
+                return
+            except Exception as e:
+                self._send_json(500, {"error": f"Instagram bağlantısı başarısız: {e}"})
+                return
+
+            content = load_content()
+            existing_urls = {p.get("url") for p in content.get("socialPosts", [])}
+            added = 0
+            for media in ig_resp.get("data", []):
+                permalink = media.get("permalink")
+                if not permalink or permalink in existing_urls:
+                    continue
+                caption = (media.get("caption") or "Instagram Paylaşımı").strip()
+                first_line = caption.splitlines()[0][:90] if caption else "Instagram Paylaşımı"
+                raw_img = media.get("thumbnail_url") if media.get("media_type") == "VIDEO" else media.get("media_url")
+                saved_img = download_image_safely(raw_img) if raw_img else None
+                new_post = {
+                    "id": f"ig-{uuid.uuid4().hex[:8]}",
+                    "platform": "instagram",
+                    "platformLabel": "Instagram",
+                    "date": format_tr_date(),
+                    "title": first_line,
+                    "excerpt": caption[:240],
+                    "image": saved_img,
+                    "metric": "Instagram",
+                    "url": permalink,
+                }
+                content.setdefault("socialPosts", []).insert(0, new_post)
+                existing_urls.add(permalink)
+                added += 1
+
+            save_content(content)
+            self._send_json(200, {"ok": True, "added": added})
             return
 
         if path == "/api/admin/upload":

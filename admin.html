@@ -440,6 +440,24 @@
 
             <hr class="admin-divider" />
 
+            <h2>Instagram Doğrudan Çekme (Graph API)</h2>
+            <p class="view-desc" style="margin-bottom: 14px;">Meta / Instagram Access Token'ın varsa bilgilerini kaydet; tek tıkla son Instagram gönderilerini ve fotoğraflarını çekebilirsin.</p>
+            <form id="formInstagramSync" class="admin-form">
+              <div class="field-row">
+                <label class="field">
+                  <span>Instagram Kullanıcı ID</span>
+                  <input type="text" id="igUserId" placeholder="ör. 17841400..." />
+                </label>
+                <label class="field">
+                  <span>Instagram Access Token</span>
+                  <input type="password" id="igAccessToken" placeholder="Kayıtlı değilse gir" />
+                </label>
+              </div>
+              <button type="submit" class="btn btn-primary full-btn" id="igSyncBtn">Instagram Gönderilerini Çek</button>
+            </form>
+
+            <hr class="admin-divider" />
+
             <h2>Anlık Webhook Bilgileri</h2>
             <p class="view-desc" style="margin-bottom: 16px;">GitHub Webhooks, Make.com, Zapier veya n8n üzerinden anlık gönderi aktarmak için aşağıdaki adresi ve gizli anahtarı kullan:</p>
 
@@ -459,6 +477,10 @@
                   <button type="button" class="btn btn-ghost btn-sm" id="rotateSecretBtn">Yenile</button>
                 </div>
               </label>
+              <div class="field-row" style="margin-top: 6px;">
+                <button type="button" class="btn btn-ghost btn-sm" id="testIgWebhookBtn">Instagram Webhook Test Et</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="testLiWebhookBtn">LinkedIn Webhook Test Et</button>
+              </div>
             </div>
           </div>
 
