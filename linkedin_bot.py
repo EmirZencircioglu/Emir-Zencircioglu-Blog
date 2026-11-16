@@ -174,33 +174,69 @@ def extract_posts_from_voyager(data: dict) -> list[dict]:
     return posts[:10]
 
 
+def _extract_profile_urn(prof_data: dict) -> str | None:
+    for obj in prof_data.get("included") or []:
+        urn = str(obj.get("entityUrn") or "")
+        if "urn:li:fsd_profile:" in urn or "urn:li:fs_profile:" in urn:
+            return urn
+    data_block = prof_data.get("data") or {}
+    for el in data_block.get("elements") or []:
+        urn = str(el.get("entityUrn") or el or "")
+        if "urn:li:fsd_profile:" in urn or "urn:li:fs_profile:" in urn:
+            return urn
+    return None
+
+
 def fetch_linkedin_posts(cfg: dict) -> list[dict]:
     opener, _ = build_linkedin_opener(cfg["li_at"])
     slug = urllib.parse.quote(cfg["profile_slug"])
 
-    # 1. Profil URN'ini al
-    prof_url = f"https://www.linkedin.com/voyager/api/identity/profiles/{slug}/profileView"
-    with opener.open(prof_url, timeout=15) as resp:
-        prof_data = json.loads(resp.read().decode("utf-8"))
-
+    # 1. Güncel Dash Profiles API üzerinden Profil URN'ini al
     profile_urn = None
-    for obj in prof_data.get("included") or []:
-        urn = str(obj.get("entityUrn") or "")
-        if "urn:li:fs_profile:" in urn or "urn:li:fsd_profile:" in urn:
-            profile_urn = urn
-            break
+    dash_url = f"https://www.linkedin.com/voyager/api/identity/dash/profiles?q=memberIdentity&memberIdentity={slug}"
+    try:
+        with opener.open(dash_url, timeout=15) as resp:
+            prof_data = json.loads(resp.read().decode("utf-8"))
+        profile_urn = _extract_profile_urn(prof_data)
+    except urllib.error.HTTPError as e:
+        if e.code not in (404, 410):
+            raise
+
+    # Yedek: /voyager/api/me üzerinden kendi profil URN'ini al
+    if not profile_urn:
+        with opener.open("https://www.linkedin.com/voyager/api/me", timeout=15) as resp:
+            me_data = json.loads(resp.read().decode("utf-8"))
+        for obj in me_data.get("included") or []:
+            urn = str(obj.get("entityUrn") or "")
+            if "urn:li:fs_miniProfile:" in urn:
+                profile_id = urn.rsplit(":", 1)[-1]
+                profile_urn = f"urn:li:fsd_profile:{profile_id}"
+                break
 
     if not profile_urn:
         raise RuntimeError("LinkedIn profil URN bulunamadı (li_at çerezi süresi dolmuş olabilir).")
 
     # 2. Profilin Gönderiler akışını çek
     encoded_urn = urllib.parse.quote(profile_urn)
-    feed_url = (
-        f"https://www.linkedin.com/voyager/api/identity/profileUpdatesV2"
-        f"?q=memberShareFeed&moduleKey=member-shares:phone&count=10&start=0&profileUrn={encoded_urn}"
-    )
-    with opener.open(feed_url, timeout=15) as resp:
-        feed_data = json.loads(resp.read().decode("utf-8"))
+    feed_urls = [
+        f"https://www.linkedin.com/voyager/api/identity/profileUpdatesV2?q=memberShareFeed&moduleKey=member-shares:phone&count=10&start=0&profileUrn={encoded_urn}",
+        f"https://www.linkedin.com/voyager/api/feed/updates?q=memberShareFeed&profileUrn={encoded_urn}&count=10",
+    ]
+    feed_data = None
+    last_err = None
+    for f_url in feed_urls:
+        try:
+            with opener.open(f_url, timeout=15) as resp:
+                feed_data = json.loads(resp.read().decode("utf-8"))
+            break
+        except urllib.error.HTTPError as e:
+            last_err = e
+            if e.code in (404, 410):
+                continue
+            raise
+
+    if feed_data is None:
+        raise last_err or RuntimeError("LinkedIn gönderi akışı alınamadı.")
 
     return extract_posts_from_voyager(feed_data)
 
