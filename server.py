@@ -776,8 +776,10 @@ class BlogHandler(BaseHTTPRequestHandler):
                 added = sync_linkedin_cloud(li_profile, li_at)
                 self._send_json(200, {"ok": True, "added": added})
             except urllib.error.HTTPError as e:
-                self._send_json(400, {"error": f"LinkedIn HTTP {e.code} hatası (li_at geçersiz veya bulut IP engeli)."})
+                sys.stderr.write(f"[LinkedIn] HTTP {e.code}: {e.reason}\n")
+                self._send_json(400, {"error": f"LinkedIn HTTP {e.code} hatası (li_at geçersiz veya LinkedIn bulut IP'yi engelledi)."})
             except Exception as e:
+                sys.stderr.write(f"[LinkedIn] Hata: {e}\n")
                 self._send_json(400, {"error": f"LinkedIn senkronizasyon hatası: {e}"})
             return
 
@@ -1151,7 +1153,7 @@ class BlogHandler(BaseHTTPRequestHandler):
             or parts[0] in {"data", "__pycache__"}
             or rel in {"server.py"}
         ):
-            self.send_error(403, "Erişim reddedildi")
+            self.send_error(403, "Forbidden")
             return
 
         if parts[0] == "uploads" and len(parts) == 2:
@@ -1159,7 +1161,7 @@ class BlogHandler(BaseHTTPRequestHandler):
             try:
                 target.relative_to(UPLOADS_DIR.resolve())
             except ValueError:
-                self.send_error(403, "Erişim reddedildi")
+                self.send_error(403, "Forbidden")
                 return
             if not target.is_file():
                 fallback = (BASE_DIR / "uploads" / parts[1]).resolve()
@@ -1170,11 +1172,11 @@ class BlogHandler(BaseHTTPRequestHandler):
             try:
                 target.relative_to(BASE_DIR)
             except ValueError:
-                self.send_error(403, "Erişim reddedildi")
+                self.send_error(403, "Forbidden")
                 return
 
         if not target.is_file():
-            self.send_error(404, "Dosya bulunamadı")
+            self.send_error(404, "Not Found")
             return
 
         mime, _ = mimetypes.guess_type(str(target))
