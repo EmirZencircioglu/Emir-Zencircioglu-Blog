@@ -841,6 +841,7 @@ img {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 20px;
+  align-items: start;
 }
 
 .social-card {
@@ -874,9 +875,52 @@ img {
 
 .social-card-media {
   position: relative;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 16 / 9;
   overflow: hidden;
   background: rgba(128, 128, 128, 0.08);
+}
+
+/* Gerçek web platform resim boyutları */
+.social-card.platform-instagram .social-card-media {
+  aspect-ratio: 4 / 5;
+  max-height: 440px;
+}
+
+.social-card.platform-linkedin .social-card-media {
+  aspect-ratio: 1.91 / 1;
+}
+
+.social-card.platform-github .social-card-media {
+  aspect-ratio: 2 / 1;
+}
+
+.social-card.platform-youtube .social-card-media {
+  aspect-ratio: 16 / 9;
+}
+
+/* Görselsiz sosyal kartlar için farklı editoryal tasarım */
+.social-card.no-image {
+  position: relative;
+}
+
+.social-card.no-image::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--border-hover);
+}
+
+.social-card.no-image.platform-instagram::before { background: linear-gradient(90deg, #ec4899, #f59e0b); }
+.social-card.no-image.platform-linkedin::before { background: linear-gradient(90deg, #0ea5e9, #38bdf8); }
+.social-card.no-image.platform-github::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+.social-card.no-image.platform-youtube::before { background: linear-gradient(90deg, #ef4444, #f87171); }
+
+.social-card.no-image .social-title {
+  font-size: 1.18rem;
+  line-height: 1.35;
 }
 
 .social-card-media img {
@@ -1174,8 +1218,59 @@ img {
   border: 1px solid var(--border);
   background: var(--bg-card);
   cursor: pointer;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 16 / 10;
   animation: cardPopIn 0.45s var(--ease-spring) backwards;
+  transition: transform 0.35s var(--ease-spring), border-color 0.35s ease;
+}
+
+.event-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--border-hover);
+}
+
+/* Görselsiz etkinlik / zirve kartı için farklı editoryal tasarım */
+.event-card.no-image {
+  background:
+    radial-gradient(circle at 90% 10%, rgba(129, 140, 248, 0.14), transparent 55%),
+    var(--bg-card);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.event-text-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.event-cat-pill {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(129, 140, 248, 0.3);
+  color: #a5b4fc;
+  text-transform: uppercase;
+}
+
+.event-text-body h3 {
+  font-size: 1.18rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin-bottom: 6px;
+}
+
+.event-text-body p {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .event-card img {

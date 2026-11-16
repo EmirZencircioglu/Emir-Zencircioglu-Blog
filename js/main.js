@@ -105,7 +105,7 @@ function renderSocialFeed(posts, filter) {
       const hasImage = Boolean(post.image);
       const isVideo = post.platform === "youtube" && post.youtubeId;
       return `
-        <article class="social-card" style="animation-delay: ${idx * 0.06}s">
+        <article class="social-card platform-${escapeHtml(post.platform)} ${hasImage ? "has-image" : "no-image"}" style="animation-delay: ${idx * 0.06}s">
           ${
             hasImage
               ? `
@@ -220,18 +220,34 @@ function renderEvents(events, filter) {
   currentVisibleEvents = filter === "all" ? events : events.filter((e) => e.category === filter);
 
   grid.innerHTML = currentVisibleEvents
-    .map(
-      (ev, idx) => `
-      <article class="event-card" data-event-index="${idx}" style="animation-delay: ${idx * 0.06}s">
-        <img src="${escapeHtml(ev.image)}" alt="${escapeHtml(ev.title)}" loading="lazy" />
-        <div class="event-overlay">
-          <span class="event-place">${escapeHtml(ev.place)} · ${escapeHtml(ev.categoryLabel)}</span>
-          <h3 class="event-title">${escapeHtml(ev.title)}</h3>
-          <span class="event-date">${escapeHtml(ev.date)}</span>
-        </div>
-      </article>
-    `
-    )
+    .map((ev, idx) => {
+      const hasImage = Boolean(ev.image);
+      if (hasImage) {
+        return `
+          <article class="event-card has-image" data-event-index="${idx}" style="animation-delay: ${idx * 0.06}s">
+            <img src="${escapeHtml(ev.image)}" alt="${escapeHtml(ev.title)}" loading="lazy" />
+            <div class="event-overlay">
+              <span class="event-place">${escapeHtml(ev.place)} · ${escapeHtml(ev.categoryLabel)}</span>
+              <h3 class="event-title">${escapeHtml(ev.title)}</h3>
+              <span class="event-date">${escapeHtml(ev.date)}</span>
+            </div>
+          </article>
+        `;
+      }
+      return `
+        <article class="event-card no-image" data-event-index="${idx}" style="animation-delay: ${idx * 0.06}s">
+          <div class="event-text-top">
+            <span class="event-cat-pill">${escapeHtml(ev.categoryLabel)}</span>
+            <span class="social-date">${escapeHtml(ev.date)}</span>
+          </div>
+          <div class="event-text-body">
+            <h3>${escapeHtml(ev.title)}</h3>
+            <p>${escapeHtml(ev.description)}</p>
+          </div>
+          <span class="mono-sub">📍 ${escapeHtml(ev.place)}</span>
+        </article>
+      `;
+    })
     .join("");
 }
 
@@ -322,9 +338,16 @@ function initModals(data) {
     const item = currentVisibleEvents[index];
     if (!item) return;
     const img = document.getElementById("lightboxImg");
-    if (img) {
-      img.src = item.image;
-      img.alt = item.title;
+    const imgWrap = img?.closest(".lightbox-image-wrap");
+    if (img && imgWrap) {
+      if (item.image) {
+        img.src = item.image;
+        img.alt = item.title;
+        imgWrap.style.display = "block";
+      } else {
+        img.src = "";
+        imgWrap.style.display = "none";
+      }
     }
     setText("lightboxTitle", item.title);
     setText("lightboxDesc", item.description);
