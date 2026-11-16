@@ -73,18 +73,33 @@ def setup_wizard() -> dict:
 
 def build_linkedin_opener(li_at: str) -> tuple[urllib.request.OpenerDirector, str]:
     cj = http.cookiejar.CookieJar()
+    cj.set_cookie(
+        http.cookiejar.Cookie(
+            version=0,
+            name="li_at",
+            value=li_at,
+            port=None,
+            port_specified=False,
+            domain=".linkedin.com",
+            domain_specified=True,
+            domain_initial_dot=True,
+            path="/",
+            path_specified=True,
+            secure=True,
+            expires=None,
+            discard=True,
+            comment=None,
+            comment_url=None,
+            rest={},
+        )
+    )
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
-    opener.addheaders = [
-        ("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"),
-        ("Accept", "application/vnd.linkedin.normalized+json+2.1"),
-        ("x-restli-protocol-version", "2.0.0"),
-        ("Cookie", f"li_at={li_at}"),
-    ]
+    ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    opener.addheaders = [("User-Agent", ua)]
 
-    # JSESSIONID / csrf-token almak için ana sayfaya hafif istek
+    # JSESSIONID / csrf-token almak için ana sayfaya istek
     try:
-        req = urllib.request.Request("https://www.linkedin.com/feed/", headers={"Cookie": f"li_at={li_at}"})
-        opener.open(req, timeout=12).read(1024)
+        opener.open("https://www.linkedin.com/feed/", timeout=12).read(1024)
     except Exception:
         pass
 
@@ -95,11 +110,10 @@ def build_linkedin_opener(li_at: str) -> tuple[urllib.request.OpenerDirector, st
             break
 
     opener.addheaders = [
-        ("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"),
+        ("User-Agent", ua),
         ("Accept", "application/vnd.linkedin.normalized+json+2.1"),
         ("x-restli-protocol-version", "2.0.0"),
         ("csrf-token", csrf_token),
-        ("Cookie", f'li_at={li_at}; JSESSIONID="{csrf_token}"'),
     ]
     return opener, csrf_token
 
