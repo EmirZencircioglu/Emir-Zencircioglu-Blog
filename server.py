@@ -390,56 +390,10 @@ def run_feed_bot_once() -> dict:
         except Exception as e:
             errors.append(f"GitHub: {e}")
 
-    # Kayıtlı LinkedIn oturumu varsa yeni gönderileri buluttan otomatik kontrol et
-    sec = load_secret() or {}
-    if sec.get("linkedin_profile") and sec.get("linkedin_li_at"):
-        try:
-            added_total += sync_linkedin_cloud(sec["linkedin_profile"], sec["linkedin_li_at"])
-        except Exception as e:
-            errors.append(f"LinkedIn: {e}")
-
     BOT_LAST_RUN["time"] = datetime.now(TR_TZ).strftime("%H:%M:%S")
     BOT_LAST_RUN["added"] = added_total
     BOT_LAST_RUN["error"] = "; ".join(errors) if errors else None
     return {"added": added_total, "errors": errors, "lastRun": BOT_LAST_RUN["time"]}
-
-
-def sync_linkedin_cloud(profile_input: str, li_at: str) -> int:
-    import linkedin_bot
-    from urllib.parse import unquote as _unquote
-
-    slug = profile_input.strip()
-    if "linkedin.com/in/" in slug:
-        slug = slug.split("linkedin.com/in/", 1)[1].strip("/")
-    slug = _unquote(slug)
-
-    posts = linkedin_bot.fetch_linkedin_posts({"profile_slug": slug, "li_at": li_at.strip()})
-    with CONTENT_LOCK:
-        content = load_content()
-        existing_urls = {p.get("url") for p in content.get("socialPosts", [])}
-        added = 0
-        for post in reversed(posts):
-            if not post.get("url") or post["url"] in existing_urls:
-                continue
-            saved_img = download_image_safely(post["image"]) if post.get("image") else None
-            pub_dt = parse_any_datetime(post.get("publishedAt"))
-            new_post = {
-                "id": f"li-{uuid.uuid4().hex[:8]}",
-                "platform": "linkedin",
-                "platformLabel": "LinkedIn",
-                "date": format_tr_date(pub_dt),
-                "title": post["title"],
-                "excerpt": post["excerpt"],
-                "image": saved_img,
-                "metric": "LinkedIn",
-                "url": post["url"],
-            }
-            content.setdefault("socialPosts", []).insert(0, new_post)
-            existing_urls.add(post["url"])
-            added += 1
-        if added:
-            save_content(content)
-        return added
 
 
 def sync_github_user_repos(gh_user: str) -> int:
@@ -482,9 +436,7 @@ def start_feed_bot_thread():
         while True:
             try:
                 has_gh = bool((load_content().get("profile", {}).get("githubUsername") or "").strip())
-                sec = load_secret() or {}
-                has_li = bool(sec.get("linkedin_profile") and sec.get("linkedin_li_at"))
-                if load_feeds() or has_gh or has_li:
+                if load_feeds() or has_gh:
                     run_feed_bot_once()
             except Exception as e:
                 sys.stderr.write(f"[FeedBot] Hata: {e}\n")
@@ -630,8 +582,6 @@ class BlogHandler(BaseHTTPRequestHandler):
                     "githubUsername": content.get("profile", {}).get("githubUsername", ""),
                     "igUserId": secret_data.get("ig_user_id", ""),
                     "igConfigured": bool(secret_data.get("ig_access_token")),
-                    "linkedinProfile": secret_data.get("linkedin_profile", ""),
-                    "linkedinConfigured": bool(secret_data.get("linkedin_li_at")),
                     "feeds": load_feeds(),
                     "botLastRun": BOT_LAST_RUN,
                 },
@@ -757,30 +707,6 @@ class BlogHandler(BaseHTTPRequestHandler):
         if path == "/api/admin/feeds/run":
             result = run_feed_bot_once()
             self._send_json(200, {"ok": True, **result})
-            return
-
-        if path == "/api/admin/sync/linkedin":
-            body = self._read_json_body(8192) or {}
-            secret_data = load_secret() or {}
-            li_profile = str(body.get("linkedinProfile") or secret_data.get("linkedin_profile") or "").strip()
-            li_at = str(body.get("linkedinLiAt") or secret_data.get("linkedin_li_at") or "").strip()
-            if not li_profile or not li_at:
-                self._send_json(400, {"error": "LinkedIn profil adı/linki ve li_at çerezi gerekli."})
-                return
-
-            secret_data["linkedin_profile"] = li_profile
-            secret_data["linkedin_li_at"] = li_at
-            _write_secret_file(secret_data)
-
-            try:
-                added = sync_linkedin_cloud(li_profile, li_at)
-                self._send_json(200, {"ok": True, "added": added})
-            except urllib.error.HTTPError as e:
-                sys.stderr.write(f"[LinkedIn] HTTP {e.code}: {e.reason}\n")
-                self._send_json(400, {"error": f"LinkedIn HTTP {e.code} hatası (li_at geçersiz veya LinkedIn bulut IP'yi engelledi)."})
-            except Exception as e:
-                sys.stderr.write(f"[LinkedIn] Hata: {e}\n")
-                self._send_json(400, {"error": f"LinkedIn senkronizasyon hatası: {e}"})
             return
 
         if path == "/api/admin/automation/rotate-secret":

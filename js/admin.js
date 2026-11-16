@@ -239,11 +239,6 @@ async function loadAutomationInfo() {
   setVal("webhookUrlInput", `${window.location.origin}${info.webhookPath}`);
   setVal("webhookSecretInput", info.webhookSecret);
   if (info.githubUsername) setVal("ghUsername", info.githubUsername);
-  if (info.linkedinProfile) setVal("liProfileInput", info.linkedinProfile);
-  if (info.linkedinConfigured) {
-    const liInput = document.getElementById("liAtInput");
-    if (liInput) liInput.placeholder = "Çerez sunucuda kayıtlı (değiştirmek için yaz)";
-  }
   renderFeedsList(info.feeds || []);
   const statusEl = document.getElementById("botStatusText");
   if (statusEl && info.botLastRun?.time) {
@@ -355,26 +350,6 @@ function initAutomationControls() {
       await loadAdminContent();
     } else {
       showToast(data.error || "GitHub senkronizasyonu başarısız.", true);
-    }
-  });
-
-  document.getElementById("formLinkedinSync")?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const linkedinProfile = val("liProfileInput");
-    const linkedinLiAt = val("liAtInput");
-    showToast("LinkedIn botu çalıştırılıyor...");
-    const res = await fetch("/api/admin/sync/linkedin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ linkedinProfile, linkedinLiAt }),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setVal("liAtInput", "");
-      showToast(`LinkedIn senkronize edildi! ${data.added} yeni gönderi eklendi.`);
-      await loadAdminContent();
-    } else {
-      showToast(data.error || "LinkedIn senkronizasyonu başarısız.", true);
     }
   });
 }
