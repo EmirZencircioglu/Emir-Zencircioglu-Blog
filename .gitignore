@@ -1,4 +1,5 @@
 data/admin_secret.json
+data/linkedin_config.json
 data/*.tmp
 __pycache__/
 *.pyc

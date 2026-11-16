@@ -31,7 +31,8 @@ import urllib.error
 import urllib.request
 import uuid
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -138,8 +139,37 @@ TR_MONTHS = [
 ]
 
 
+TR_TZ = timezone(timedelta(hours=3))
+
+
+def parse_any_datetime(value) -> datetime | None:
+    if not value:
+        return None
+    if isinstance(value, (int, float)):
+        ts = value / 1000.0 if value > 1e12 else float(value)
+        return datetime.fromtimestamp(ts, tz=TR_TZ)
+    raw = str(value).strip()
+    if not raw:
+        return None
+    try:
+        iso = raw[:-1] + "+00:00" if raw.endswith("Z") else raw
+        dt = datetime.fromisoformat(iso)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=TR_TZ)
+        return dt.astimezone(TR_TZ)
+    except Exception:
+        pass
+    try:
+        dt = parsedate_to_datetime(raw)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=TR_TZ)
+        return dt.astimezone(TR_TZ)
+    except Exception:
+        return None
+
+
 def format_tr_date(dt: datetime | None = None) -> str:
-    dt = dt or datetime.now()
+    dt = dt or datetime.now(TR_TZ)
     return f"{dt.day:02d} {TR_MONTHS[dt.month]} {dt.year}"
 
 
@@ -260,6 +290,7 @@ def parse_feed_items(xml_bytes: bytes) -> list[dict]:
         if not img_url:
             img_url = _extract_img_from_html(content_encoded or desc_raw)
 
+        pub_raw = (item.findtext("pubDate") or "").strip()
         excerpt = _strip_html(desc_raw or content_encoded)[:240]
         if link:
             items.append({
@@ -267,6 +298,7 @@ def parse_feed_items(xml_bytes: bytes) -> list[dict]:
                 "url": link,
                 "excerpt": excerpt,
                 "image": img_url,
+                "publishedAt": pub_raw,
             })
 
     # Atom (<feed><entry>...)
@@ -277,15 +309,18 @@ def parse_feed_items(xml_bytes: bytes) -> list[dict]:
             title_el = entry.find("atom:title", ns) or entry.find("title")
             link_el = entry.find("atom:link", ns) or entry.find("link")
             sum_el = entry.find("atom:summary", ns) or entry.find("summary") or entry.find("atom:content", ns) or entry.find("content")
+            pub_el = entry.find("atom:published", ns) or entry.find("published") or entry.find("atom:updated", ns) or entry.find("updated")
             title = (title_el.text if title_el is not None and title_el.text else "").strip()
             link = (link_el.attrib.get("href", "") if link_el is not None else "").strip()
             raw_body = sum_el.text if sum_el is not None and sum_el.text else ""
+            pub_raw = (pub_el.text if pub_el is not None and pub_el.text else "").strip()
             if link:
                 items.append({
                     "title": _strip_html(title)[:120] or "Yeni Paylaşım",
                     "url": link,
                     "excerpt": _strip_html(raw_body)[:240],
                     "image": _extract_img_from_html(raw_body),
+                    "publishedAt": pub_raw,
                 })
 
     return items[:10]
@@ -327,11 +362,12 @@ def run_feed_bot_once() -> dict:
                 if entry["url"] in existing_urls:
                     continue
                 saved_img = download_image_safely(entry["image"]) if entry.get("image") else None
+                pub_dt = parse_any_datetime(entry.get("publishedAt"))
                 new_for_feed.append({
                     "id": f"bot-{uuid.uuid4().hex[:8]}",
                     "platform": platform,
                     "platformLabel": platform_labels[platform],
-                    "date": format_tr_date(),
+                    "date": format_tr_date(pub_dt),
                     "title": entry["title"],
                     "excerpt": entry["excerpt"] or f"Yeni {platform_labels[platform]} paylaşımı.",
                     "image": saved_img,
@@ -375,11 +411,12 @@ def sync_github_user_repos(gh_user: str) -> int:
                 continue
             lang = repo.get("language") or "Kod"
             stars = repo.get("stargazers_count", 0)
+            repo_dt = parse_any_datetime(repo.get("created_at") or repo.get("pushed_at"))
             new_post = {
                 "id": f"gh-{uuid.uuid4().hex[:8]}",
                 "platform": "github",
                 "platformLabel": "GitHub",
-                "date": format_tr_date(),
+                "date": format_tr_date(repo_dt),
                 "title": repo.get("name", "GitHub Projesi"),
                 "excerpt": repo.get("description") or "GitHub üzerinde paylaşılan yeni açık kaynak depo.",
                 "image": None,
@@ -894,26 +931,30 @@ class BlogHandler(BaseHTTPRequestHandler):
             lang = repo.get("language") or "Kod"
             stars = repo.get("stargazers_count", 0)
 
+            event_dt = None
             if gh_event == "push":
                 head = payload.get("head_commit") or {}
                 title = f"{repo_name} — Yeni Güncelleme"
                 excerpt = (head.get("message") or repo.get("description") or "Yeni kod güncellemesi paylaşıldı.").splitlines()[0]
                 url = head.get("url") or repo_url
+                event_dt = parse_any_datetime(head.get("timestamp"))
             elif gh_event == "release":
                 rel = payload.get("release") or {}
                 title = f"{repo_name} {rel.get('tag_name', '')}".strip()
                 excerpt = (rel.get("name") or rel.get("body") or "Yeni sürüm yayınlandı.")[:180]
                 url = rel.get("html_url") or repo_url
+                event_dt = parse_any_datetime(rel.get("published_at") or rel.get("created_at"))
             else:
                 title = repo_name
                 excerpt = repo.get("description") or f"GitHub üzerinde {gh_event} aktivitesi."
                 url = repo_url
+                event_dt = parse_any_datetime(repo.get("created_at"))
 
             new_post = {
                 "id": f"wh-{uuid.uuid4().hex[:8]}",
                 "platform": "github",
                 "platformLabel": "GitHub",
-                "date": format_tr_date(),
+                "date": format_tr_date(event_dt),
                 "title": title,
                 "excerpt": excerpt,
                 "image": None,
@@ -931,12 +972,14 @@ class BlogHandler(BaseHTTPRequestHandler):
             url = str(payload.get("url", "")).strip() or "https://"
             raw_image = str(payload.get("image") or "").strip()
             saved_image = download_image_safely(raw_image) if raw_image else None
+            pub_dt = parse_any_datetime(payload.get("publishedAt"))
+            date_str = str(payload.get("date") or "").strip() or format_tr_date(pub_dt)
 
             new_post = {
                 "id": f"wh-{uuid.uuid4().hex[:8]}",
                 "platform": platform,
                 "platformLabel": platform_labels[platform],
-                "date": str(payload.get("date") or "").strip() or format_tr_date(),
+                "date": date_str,
                 "title": title[:140],
                 "excerpt": excerpt[:320],
                 "image": saved_image,
@@ -946,9 +989,14 @@ class BlogHandler(BaseHTTPRequestHandler):
             if platform == "youtube" and payload.get("youtubeId"):
                 new_post["youtubeId"] = str(payload["youtubeId"]).strip()
 
-        content = load_content()
-        content.setdefault("socialPosts", []).insert(0, new_post)
-        save_content(content)
+        with CONTENT_LOCK:
+            content = load_content()
+            existing_urls = {p.get("url") for p in content.get("socialPosts", []) if p.get("url")}
+            if new_post.get("url") and new_post["url"] in existing_urls:
+                self._send_json(200, {"ok": True, "duplicate": True, "url": new_post["url"]})
+                return
+            content.setdefault("socialPosts", []).insert(0, new_post)
+            save_content(content)
         self._send_json(201, {"ok": True, "item": new_post})
 
     def do_PUT(self):
