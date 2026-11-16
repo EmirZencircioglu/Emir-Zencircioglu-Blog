@@ -455,6 +455,24 @@
 
             <hr class="admin-divider" />
 
+            <h2>7/24 Bulut LinkedIn Botu (PC Kapalıyken de Çalışır)</h2>
+            <p class="view-desc" style="margin-bottom: 14px;">Tarayıcında LinkedIn açıkken <code>F12 → Application → Cookies → linkedin.com</code> altından <strong>li_at</strong> değerini kopyalayıp kaydet. Sunucu her 5 dakikada bir LinkedIn gönderilerini otomatik kontrol eder.</p>
+            <form id="formLinkedinSync" class="admin-form">
+              <div class="field-row">
+                <label class="field">
+                  <span>LinkedIn Profil Linki / Adı</span>
+                  <input type="text" id="liProfileInput" required placeholder="emir-zencircioglu" />
+                </label>
+                <label class="field">
+                  <span>LinkedIn li_at Çerezi</span>
+                  <input type="password" id="liAtInput" placeholder="Kayıtlı değilse yapıştır" />
+                </label>
+              </div>
+              <button type="submit" class="btn btn-primary full-btn">LinkedIn Botunu Kaydet & Çalıştır</button>
+            </form>
+
+            <hr class="admin-divider" />
+
             <h2>GitHub Repolarını Çek</h2>
             <p class="view-desc" style="margin-bottom: 18px;">GitHub kullanıcı adını girerek son güncellediğin açık kaynak depolarını tek tıkla sosyal akışına aktarabilirsin.</p>
             <form id="formGithubSync" class="admin-form">
