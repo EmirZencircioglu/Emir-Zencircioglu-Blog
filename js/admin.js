@@ -2,7 +2,7 @@
  * ADMIN PANELİ İSTEMCİ MANTIĞI (AYRI SAYFA / GÖRÜNÜM YÖNETİMİ)
  */
 
-const VALID_VIEWS = ["overview", "blog", "events", "projects", "social", "automation", "profile"];
+const VALID_VIEWS = ["overview", "blog", "events", "projects", "social", "automation", "hero", "profile"];
 let ADMIN_CONTENT = {};
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -11,6 +11,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   initImageUpload("ideaFile", "ideaImageUrl", "ideaPreview", "ideaAddImgBtn", "ideaRemoveImgBtn");
   initImageUpload("socFile", "socImageUrl", "socPreview", "socAddImgBtn", "socRemoveImgBtn");
   initImageUpload("evFile", "evImageUrl", "evPreview", "evAddImgBtn", "evRemoveImgBtn");
+  initImageUpload("projFile", "projImageUrl", "projPreview", "projAddImgBtn", "projRemoveImgBtn");
+  initImageUpload("heroFile", "heroImageUrl", "heroPreview", "heroAddImgBtn", "heroRemoveImgBtn");
+  initImageUpload("profFile", "profAvatar", "profPreview", "profAddImgBtn", "profRemoveImgBtn");
   initAuthForms();
   initPublishForms();
   initCancelEditButtons();
@@ -256,7 +259,7 @@ async function loadAdminContent() {
   const content = await res.json();
   ADMIN_CONTENT = content;
 
-  hydrateProfileForm(content.profile, content.institutions);
+  hydrateSiteAndProfileForms(content);
   updateOverviewCounts(content);
 
   renderSectionList("listIdeas", "blogListCount", "ideas", content.ideas || [], (x) => `${x.tag} · ${x.date}`, "yazı");
@@ -579,6 +582,8 @@ function startEditingItem(section, id) {
     setVal("projStack", Array.isArray(item.stack) ? item.stack.join(", ") : item.stack || "");
     setVal("projGithub", item.githubUrl || "");
     setVal("projLive", item.liveUrl || "");
+    setVal("projImageUrl", item.image || "");
+    syncImagePreview("projImageUrl", "projPreview", "projRemoveImgBtn");
   } else if (section === "socialPosts") {
     setSocialPlatformUI(item.platform || "instagram");
     setVal("socDate", item.date || "");
@@ -617,21 +622,96 @@ function cancelEditing(formId) {
     syncImagePreview("evImageUrl", "evPreview", "evRemoveImgBtn");
   } else if (formId === "formIdea") {
     syncImagePreview("ideaImageUrl", "ideaPreview", "ideaRemoveImgBtn");
+  } else if (formId === "formProject") {
+    syncImagePreview("projImageUrl", "projPreview", "projRemoveImgBtn");
   }
 }
 
-function hydrateProfileForm(profile, institutions) {
-  if (!profile) return;
-  setVal("profBrand", profile.brandName);
-  setVal("profName", profile.name);
-  setVal("profRole", profile.role);
-  setVal("profStatus", profile.status);
-  setVal("profBio", profile.bio);
-  setVal("profEmail", profile.email);
-  setVal("profAvatar", profile.avatar);
+function hydrateSiteAndProfileForms(content) {
+  const profile = content.profile || {};
+  const hero = content.hero || {};
+  const site = content.site || {};
+  const contact = content.contact || {};
+  const institutions = content.institutions || [];
+
+  // Giriş (Hero) & Vitrin
+  setVal("heroImageUrl", hero.portraitImage || "");
+  syncImagePreview("heroImageUrl", "heroPreview", "heroRemoveImgBtn");
+  setVal("heroKickerInput", hero.kicker || "FİNANS · SERMAYE PİYASALARI · TEKNOLOJİ");
+  setVal("heroTitleLine1Input", hero.titleLine1 || "Piyasaları okuyan,");
+  setVal("heroTitlePrefixInput", hero.titlePrefix || "teknolojiyle");
+  setVal("heroTitleHighlightInput", hero.titleHighlight || "değer üreten");
+  setVal("heroTitleLine3Input", hero.titleLine3 || "bir bakış açısı.");
+  setVal(
+    "heroSubtitleInput",
+    hero.subtitle ||
+      "Yazılım ve ürün geliştirme çalışmalarımı sermaye piyasaları, yatırım ve hazine perspektifimle birleştiriyor; katıldığım kurumları, zirveleri ve fikirlerimi burada şeffafça paylaşıyorum."
+  );
+  setVal(
+    "heroPillarsInput",
+    (Array.isArray(hero.pillars) && hero.pillars.length
+      ? hero.pillars
+      : ["Sermaye Piyasaları & Yatırım", "Hazine & Bankacılık", "Yazılım & Dijital Ürün"]
+    ).join("\n")
+  );
+  setVal("heroPrimaryCtaInput", hero.primaryCtaText || "Benimle Tanışın");
+  setVal("heroSecondaryCtaInput", hero.secondaryCtaText || "Projeler & Zirveler");
+
+  setVal("topbarCtaInput", site.topCtaText || "Tanışalım ↗");
+  setVal(
+    "tabRolesInput",
+    (Array.isArray(site.tabRoles) && site.tabRoles.length
+      ? site.tabRoles
+      : ["Sermaye Piyasaları", "Finans", "Hazine & Yatırım", "Teknoloji", "Fintech & Analiz"]
+    ).join(", ")
+  );
+  setVal(
+    "topTickerItemsInput",
+    (Array.isArray(site.tickerItems) && site.tickerItems.length
+      ? site.tickerItems
+      : ["SERMAYE PİYASALARI", "YATIRIM & HAZİNE", "YAZILIM & FİNTECH", "ZİRVELER & KURUMLAR", "AÇIK KAYNAK PROJELER"]
+    ).join(", ")
+  );
+  setVal("secAboutPrefix", site.aboutTitlePrefix || "Disiplinler Arası");
+  setVal("secAboutHighlight", site.aboutTitleHighlight || "Profil");
+  setVal("secProjectsPrefix", site.projectsTitlePrefix || "Ürettiğim");
+  setVal("secProjectsHighlight", site.projectsTitleHighlight || "Sistemler");
+  setVal("secEventsPrefix", site.eventsTitlePrefix || "Katıldığım");
+  setVal("secEventsHighlight", site.eventsTitleHighlight || "Ekosistemler");
+  setVal("secIdeasPrefix", site.ideasTitlePrefix || "Notlar &");
+  setVal("secIdeasHighlight", site.ideasTitleHighlight || "Bakış Açıları");
+  setVal("secSocialPrefix", site.socialTitlePrefix || "Instagram, LinkedIn, GitHub &");
+  setVal("secSocialHighlight", site.socialTitleHighlight || "YouTube");
+
+  // Profil, Kurumlar & Tanışalım
+  setVal("profBrand", profile.brandName || "");
+  setVal("profName", profile.name || "");
+  setVal("profRole", profile.role || "");
+  setVal("profStatus", profile.status || "");
+  setVal("profBio", profile.bio || "");
+  setVal("profEmail", profile.email || "");
+  setVal("profAvatar", profile.avatar || "");
+  syncImagePreview("profAvatar", "profPreview", "profRemoveImgBtn");
   setVal("profInterests", (profile.interests || []).join(", "));
   setVal("profNow", (profile.now || []).join("\n"));
-  setVal("profInstitutions", (institutions || []).join(", "));
+  setVal("profInstitutions", institutions.join(", "));
+
+  setVal("profPhone", contact.phoneDisplay || "0537 775 12 24");
+  setVal("profContactPrefix", contact.titlePrefix || "Sermaye piyasaları, hazine ve teknolojinin kesişiminde");
+  setVal("profContactHighlight", contact.titleHighlight || "değer üretmeye hazırım.");
+  setVal(
+    "profContactDesc",
+    contact.description ||
+      "Üniversite eğitimimi yazılım projeleri ve zirvelerle beslerken sermaye piyasaları, yatırım ve hazine süreçlerinde de kendimi aktif olarak geliştiriyorum. Büyük ölçekli bankaların ve kurumsal şirketlerin hazine, yatırım veya teknoloji ekiplerinde sorumluluk alarak öğrenmeye ve somut katkı sunmaya açığım."
+  );
+  setVal("profFooterNote", contact.footerNote || "Tüm hakları saklıdır.");
+
+  const links = profile.socialLinks || [];
+  const findLink = (label) => (links.find((l) => (l.label || "").toLowerCase() === label.toLowerCase()) || {}).url || "";
+  setVal("profSocInstagram", findLink("Instagram"));
+  setVal("profSocLinkedIn", findLink("LinkedIn"));
+  setVal("profSocGitHub", findLink("GitHub"));
+  setVal("profSocYouTube", findLink("YouTube"));
 }
 
 /* ==========================================================================
@@ -721,13 +801,73 @@ function initPublishForms() {
         .filter(Boolean),
       githubUrl: val("projGithub"),
       liveUrl: val("projLive") || "#",
+      image: val("projImageUrl") || null,
     };
-    await publishItem("projects", item, e.target);
+    await publishItem("projects", item, e.target, "projPreview", "projRemoveImgBtn");
   });
 
-  // Profile
+  // Giriş (Hero) & Vitrin Ayarları
+  document.getElementById("formHero")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const hero = {
+      portraitImage: val("heroImageUrl") || null,
+      kicker: val("heroKickerInput"),
+      titleLine1: val("heroTitleLine1Input"),
+      titlePrefix: val("heroTitlePrefixInput"),
+      titleHighlight: val("heroTitleHighlightInput"),
+      titleLine3: val("heroTitleLine3Input"),
+      subtitle: val("heroSubtitleInput"),
+      pillars: val("heroPillarsInput")
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean),
+      primaryCtaText: val("heroPrimaryCtaInput"),
+      secondaryCtaText: val("heroSecondaryCtaInput"),
+    };
+    const site = {
+      topCtaText: val("topbarCtaInput"),
+      tabRoles: val("tabRolesInput")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+      tickerItems: val("topTickerItemsInput")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+      aboutTitlePrefix: val("secAboutPrefix"),
+      aboutTitleHighlight: val("secAboutHighlight"),
+      projectsTitlePrefix: val("secProjectsPrefix"),
+      projectsTitleHighlight: val("secProjectsHighlight"),
+      eventsTitlePrefix: val("secEventsPrefix"),
+      eventsTitleHighlight: val("secEventsHighlight"),
+      ideasTitlePrefix: val("secIdeasPrefix"),
+      ideasTitleHighlight: val("secIdeasHighlight"),
+      socialTitlePrefix: val("secSocialPrefix"),
+      socialTitleHighlight: val("secSocialHighlight"),
+    };
+
+    const res = await fetch("/api/admin/site", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hero, site }),
+    });
+    if (res.ok) {
+      showToast("Giriş ekranı ve vitrin ayarları güncellendi!");
+      await loadAdminContent();
+    } else {
+      showToast("Güncelleme başarısız.", true);
+    }
+  });
+
+  // Profile, Institutions, Contact & Social Links
   document.getElementById("formProfile")?.addEventListener("submit", async (e) => {
     e.preventDefault();
+    const socialLinks = [
+      { label: "Instagram", url: val("profSocInstagram") || "https://instagram.com" },
+      { label: "LinkedIn", url: val("profSocLinkedIn") || "https://linkedin.com" },
+      { label: "GitHub", url: val("profSocGitHub") || "https://github.com" },
+      { label: "YouTube", url: val("profSocYouTube") || "https://youtube.com" },
+    ];
     const profile = {
       brandName: val("profBrand"),
       name: val("profName"),
@@ -744,19 +884,28 @@ function initPublishForms() {
         .split("\n")
         .map((s) => s.trim())
         .filter(Boolean),
+      socialLinks,
     };
     const institutions = val("profInstitutions")
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
+    const contact = {
+      phoneDisplay: val("profPhone"),
+      titlePrefix: val("profContactPrefix"),
+      titleHighlight: val("profContactHighlight"),
+      description: val("profContactDesc"),
+      footerNote: val("profFooterNote"),
+    };
 
     const res = await fetch("/api/admin/profile", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profile, institutions }),
+      body: JSON.stringify({ profile, institutions, contact }),
     });
     if (res.ok) {
-      showToast("Profil ve kurumlar güncellendi!");
+      showToast("Profil, kurumlar ve iletişim bilgileri güncellendi!");
+      await loadAdminContent();
     } else {
       showToast("Güncelleme başarısız.", true);
     }

@@ -107,13 +107,17 @@
           <span>Instagram, LinkedIn & Sosyal</span>
         </a>
         <div class="sidebar-divider">AYARLAR & OTOMASYON</div>
-        <a href="#automation" class="sidebar-link" data-view="automation">
-          <span class="nav-ico">⚡</span>
-          <span>Otomasyon & Webhook</span>
+        <a href="#hero" class="sidebar-link" data-view="hero">
+          <span class="nav-ico">✦</span>
+          <span>Giriş (Hero) & Vitrin</span>
         </a>
         <a href="#profile" class="sidebar-link" data-view="profile">
           <span class="nav-ico">☺</span>
-          <span>Profil & Kurumlar</span>
+          <span>Profil, Kurumlar & İletişim</span>
+        </a>
+        <a href="#automation" class="sidebar-link" data-view="automation">
+          <span class="nav-ico">⚡</span>
+          <span>Otomasyon, Gemini & Webhook</span>
         </a>
       </nav>
 
@@ -155,6 +159,16 @@
             <span class="stat-card-label">Sosyal Medya (IG / LI / GH / YT)</span>
             <strong class="stat-card-num" id="countSocial">0</strong>
             <span class="stat-card-cta">+ Yeni gönderi ekle →</span>
+          </a>
+          <a href="#hero" class="stat-card-link" data-view="hero">
+            <span class="stat-card-label">Giriş (Hero), Portre & Başlıklar</span>
+            <strong class="stat-card-num">✦</strong>
+            <span class="stat-card-cta">Giriş ekranını düzenle →</span>
+          </a>
+          <a href="#profile" class="stat-card-link" data-view="profile">
+            <span class="stat-card-label">Profil, Avatar, Kurumlar & Tanışalım</span>
+            <strong class="stat-card-num">☺</strong>
+            <span class="stat-card-cta">Profili ve iletişimi düzenle →</span>
           </a>
         </div>
       </section>
@@ -345,6 +359,18 @@
                   <span>Canlı Link (Opsiyonel)</span>
                   <input type="text" id="projLive" placeholder="https://... veya #" />
                 </label>
+              </div>
+              <div class="field">
+                <span>Proje Görseli (Opsiyonel)</span>
+                <div class="upload-box">
+                  <input type="file" id="projFile" accept="image/*" class="hidden" />
+                  <div class="image-btn-row">
+                    <button type="button" class="btn btn-ghost btn-sm" id="projAddImgBtn">+ Resim Ekle / Değiştir</button>
+                    <button type="button" class="btn btn-ghost btn-sm remove-img-btn hidden" id="projRemoveImgBtn">Resmi Kaldır</button>
+                  </div>
+                  <input type="text" id="projImageUrl" placeholder="Opsiyonel: yüklenen görsel yolu veya https://..." />
+                </div>
+                <img id="projPreview" class="upload-preview hidden" alt="Önizleme" />
               </div>
               <div class="form-actions-row">
                 <button type="submit" class="btn btn-primary full-btn" data-submit-for="formProject" data-default-label="Projeyi Yayınla">Projeyi Yayınla</button>
@@ -556,13 +582,166 @@
         </div>
       </section>
 
-      <!-- 7. PROFİL & KURUMLAR SAYFASI -->
+      <!-- 7. GİRİŞ (HERO), VİTRİN & BÖLÜM BAŞLIKLARI -->
+      <section class="admin-view" id="view-hero">
+        <div class="view-header">
+          <div>
+            <span class="section-tag">GİRİŞ (HERO) & VİTRİN</span>
+            <h1>Giriş Ekranı, Büyük Portre Fotoğrafı ve Başlıklar</h1>
+            <p class="view-desc">Sitenin açılışındaki (Giriş) portre görselini, büyük başlığı, rozetleri, üst kayan bandı ve tüm bölüm başlıklarını buradan değiştirebilirsin.</p>
+          </div>
+        </div>
+
+        <div class="admin-panel-card single-col-card">
+          <form id="formHero" class="admin-form">
+            <h2>Giriş (Hero) Bölümü</h2>
+            <div class="field">
+              <span>Giriş Büyük Portre Resmi</span>
+              <div class="upload-box">
+                <input type="file" id="heroFile" accept="image/*" class="hidden" />
+                <div class="image-btn-row">
+                  <button type="button" class="btn btn-ghost btn-sm" id="heroAddImgBtn">+ Portre Resim Ekle / Değiştir</button>
+                  <button type="button" class="btn btn-ghost btn-sm remove-img-btn hidden" id="heroRemoveImgBtn">Resmi Kaldır</button>
+                </div>
+                <input type="text" id="heroImageUrl" placeholder="Boş bırakırsan Profil Avatarı kullanılır; veya /uploads/... ya da https://..." />
+              </div>
+              <img id="heroPreview" class="upload-preview hidden" alt="Giriş Portre Önizlemesi" />
+            </div>
+
+            <label class="field">
+              <span>Giriş Üst Etiketi</span>
+              <input type="text" id="heroKickerInput" placeholder="FİNANS · SERMAYE PİYASALARI · TEKNOLOJİ" />
+            </label>
+
+            <div class="field-row">
+              <label class="field">
+                <span>Ana Başlık 1. Satır</span>
+                <input type="text" id="heroTitleLine1Input" placeholder="Piyasaları okuyan," />
+              </label>
+              <label class="field">
+                <span>Ana Başlık 3. Satır</span>
+                <input type="text" id="heroTitleLine3Input" placeholder="bir bakış açısı." />
+              </label>
+            </div>
+
+            <div class="field-row">
+              <label class="field">
+                <span>Ana Başlık 2. Satır (Normal)</span>
+                <input type="text" id="heroTitlePrefixInput" placeholder="teknolojiyle" />
+              </label>
+              <label class="field">
+                <span>Ana Başlık 2. Satır (Altın İtalik Vurgu)</span>
+                <input type="text" id="heroTitleHighlightInput" placeholder="değer üreten" />
+              </label>
+            </div>
+
+            <label class="field">
+              <span>Giriş Açıklama Paragrafı</span>
+              <textarea id="heroSubtitleInput" rows="3" placeholder="Yazılım ve ürün geliştirme çalışmalarımı..."></textarea>
+            </label>
+
+            <label class="field">
+              <span>Giriş Rozetleri (Her satıra 1 madde — 01, 02, 03 olarak gösterilir)</span>
+              <textarea id="heroPillarsInput" rows="3" placeholder="Sermaye Piyasaları & Yatırım&#10;Hazine & Bankacılık&#10;Yazılım & Dijital Ürün"></textarea>
+            </label>
+
+            <div class="field-row">
+              <label class="field">
+                <span>Birincil Buton Metni</span>
+                <input type="text" id="heroPrimaryCtaInput" placeholder="Benimle Tanışın" />
+              </label>
+              <label class="field">
+                <span>İkincil Buton Metni</span>
+                <input type="text" id="heroSecondaryCtaInput" placeholder="Projeler & Zirveler" />
+              </label>
+            </div>
+
+            <hr class="admin-divider" />
+            <h2>Üst Bant, Sekme Başlığı & Bölüm İsimleri</h2>
+
+            <div class="field-row">
+              <label class="field">
+                <span>Sağ Üst CTA Butonu</span>
+                <input type="text" id="topbarCtaInput" placeholder="Tanışalım ↗" />
+              </label>
+              <label class="field">
+                <span>Tarayıcı Sekmesinde Dönen Başlıklar (virgülle ayır)</span>
+                <input type="text" id="tabRolesInput" placeholder="Sermaye Piyasaları, Finans, Hazine & Yatırım, Teknoloji, Fintech & Analiz" />
+              </label>
+            </div>
+
+            <label class="field">
+              <span>En Üst Kayan Ticker Şeridi (virgülle ayır)</span>
+              <input type="text" id="topTickerItemsInput" placeholder="SERMAYE PİYASALARI, YATIRIM & HAZİNE, YAZILIM & FİNTECH, ZİRVELER & KURUMLAR, AÇIK KAYNAK PROJELER" />
+            </label>
+
+            <div class="field-row">
+              <label class="field">
+                <span>01 / Hakkımda Başlık (Normal)</span>
+                <input type="text" id="secAboutPrefix" placeholder="Disiplinler Arası" />
+              </label>
+              <label class="field">
+                <span>01 / Hakkımda Başlık (Vurgu)</span>
+                <input type="text" id="secAboutHighlight" placeholder="Profil" />
+              </label>
+            </div>
+
+            <div class="field-row">
+              <label class="field">
+                <span>02 / Projeler Başlık (Normal)</span>
+                <input type="text" id="secProjectsPrefix" placeholder="Ürettiğim" />
+              </label>
+              <label class="field">
+                <span>02 / Projeler Başlık (Vurgu)</span>
+                <input type="text" id="secProjectsHighlight" placeholder="Sistemler" />
+              </label>
+            </div>
+
+            <div class="field-row">
+              <label class="field">
+                <span>03 / Zirveler Başlık (Normal)</span>
+                <input type="text" id="secEventsPrefix" placeholder="Katıldığım" />
+              </label>
+              <label class="field">
+                <span>03 / Zirveler Başlık (Vurgu)</span>
+                <input type="text" id="secEventsHighlight" placeholder="Ekosistemler" />
+              </label>
+            </div>
+
+            <div class="field-row">
+              <label class="field">
+                <span>04 / Fikirler Başlık (Normal)</span>
+                <input type="text" id="secIdeasPrefix" placeholder="Notlar &" />
+              </label>
+              <label class="field">
+                <span>04 / Fikirler Başlık (Vurgu)</span>
+                <input type="text" id="secIdeasHighlight" placeholder="Bakış Açıları" />
+              </label>
+            </div>
+
+            <div class="field-row">
+              <label class="field">
+                <span>05 / Sosyal Akış Başlık (Normal)</span>
+                <input type="text" id="secSocialPrefix" placeholder="Instagram, LinkedIn, GitHub &" />
+              </label>
+              <label class="field">
+                <span>05 / Sosyal Akış Başlık (Vurgu)</span>
+                <input type="text" id="secSocialHighlight" placeholder="YouTube" />
+              </label>
+            </div>
+
+            <button type="submit" class="btn btn-primary full-btn">Giriş ve Vitrin Ayarlarını Kaydet</button>
+          </form>
+        </div>
+      </section>
+
+      <!-- 8. PROFİL, KURUMLAR & TANIŞALIM SAYFASI -->
       <section class="admin-view" id="view-profile">
         <div class="view-header">
           <div>
-            <span class="section-tag">PROFİL & KURUMLAR</span>
-            <h1>Hakkımda Bilgileri ve Ziyaret Edilen Kurumlar</h1>
-            <p class="view-desc">Ana sayfadaki biyografini, iletişim e-postanı ve kayan kurumlar şeridini buradan düzenle.</p>
+            <span class="section-tag">PROFİL, KURUMLAR & TANIŞALIM</span>
+            <h1>Hakkımda, Profil Fotoğrafı, Kurumlar ve İletişim</h1>
+            <p class="view-desc">Profil fotoğrafını, biyografini, telefon/e-posta bilgilerini, Tanışalım bölümünü ve sosyal medya linklerini buradan güncelle.</p>
           </div>
         </div>
 
@@ -583,22 +762,24 @@
               <input type="text" id="profRole" required />
             </label>
             <label class="field">
-              <span>Durum Rozeti (Hero)</span>
+              <span>Üst Durum Rozeti (Topbar)</span>
               <input type="text" id="profStatus" required />
             </label>
             <label class="field">
               <span>Hakkımda Yazısı</span>
               <textarea id="profBio" rows="4" required></textarea>
             </label>
-            <div class="field-row">
-              <label class="field">
-                <span>E-posta</span>
-                <input type="email" id="profEmail" required />
-              </label>
-              <label class="field">
-                <span>Avatar URL</span>
-                <input type="text" id="profAvatar" required />
-              </label>
+            <div class="field">
+              <span>Profil / Avatar Fotoğrafı</span>
+              <div class="upload-box">
+                <input type="file" id="profFile" accept="image/*" class="hidden" />
+                <div class="image-btn-row">
+                  <button type="button" class="btn btn-ghost btn-sm" id="profAddImgBtn">+ Avatar Resmi Ekle / Değiştir</button>
+                  <button type="button" class="btn btn-ghost btn-sm remove-img-btn hidden" id="profRemoveImgBtn">Resmi Kaldır</button>
+                </div>
+                <input type="text" id="profAvatar" placeholder="Yüklenen görsel yolu veya https://..." />
+              </div>
+              <img id="profPreview" class="upload-preview hidden" alt="Profil Önizleme" />
             </div>
             <label class="field">
               <span>İlgi Alanları (virgülle ayır)</span>
@@ -612,7 +793,65 @@
               <span>Ziyaret Edilen Kurumlar / Şirketler (virgülle ayır)</span>
               <textarea id="profInstitutions" rows="2"></textarea>
             </label>
-            <button type="submit" class="btn btn-primary full-btn">Profili Kaydet</button>
+
+            <hr class="admin-divider" />
+            <h2>06 / Tanışalım, İletişim & Sosyal Bağlantılar</h2>
+
+            <div class="field-row">
+              <label class="field">
+                <span>Telefon Numarası</span>
+                <input type="text" id="profPhone" required placeholder="0537 775 12 24" />
+              </label>
+              <label class="field">
+                <span>E-posta</span>
+                <input type="email" id="profEmail" required />
+              </label>
+            </div>
+
+            <div class="field-row">
+              <label class="field">
+                <span>Tanışalım Başlık (Normal)</span>
+                <input type="text" id="profContactPrefix" placeholder="Sermaye piyasaları, hazine ve teknolojinin kesişiminde" />
+              </label>
+              <label class="field">
+                <span>Tanışalım Başlık (Altın Vurgu)</span>
+                <input type="text" id="profContactHighlight" placeholder="değer üretmeye hazırım." />
+              </label>
+            </div>
+
+            <label class="field">
+              <span>Tanışalım Açıklama Metni</span>
+              <textarea id="profContactDesc" rows="3" placeholder="Üniversite eğitimimi yazılım projeleri ve zirvelerle..."></textarea>
+            </label>
+
+            <div class="field-row">
+              <label class="field">
+                <span>Instagram URL</span>
+                <input type="url" id="profSocInstagram" placeholder="https://instagram.com/..." />
+              </label>
+              <label class="field">
+                <span>LinkedIn URL</span>
+                <input type="url" id="profSocLinkedIn" placeholder="https://linkedin.com/in/..." />
+              </label>
+            </div>
+
+            <div class="field-row">
+              <label class="field">
+                <span>GitHub URL</span>
+                <input type="url" id="profSocGitHub" placeholder="https://github.com/..." />
+              </label>
+              <label class="field">
+                <span>YouTube URL</span>
+                <input type="url" id="profSocYouTube" placeholder="https://youtube.com/..." />
+              </label>
+            </div>
+
+            <label class="field">
+              <span>Alt Bilgi (Footer) Notu</span>
+              <input type="text" id="profFooterNote" placeholder="Tüm hakları saklıdır." />
+            </label>
+
+            <button type="submit" class="btn btn-primary full-btn">Profil, Kurumlar & İletişimi Kaydet</button>
           </form>
         </div>
       </section>

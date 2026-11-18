@@ -40,7 +40,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initFilters(data);
   initModals(data);
   initMobileMenu();
-  initCopyEmail(data.profile?.email || "");
+  initCopyEmail(data.profile?.email || "", data.contact?.phoneDisplay || "0537 775 12 24");
   initChatbot(data);
 });
 
@@ -59,20 +59,24 @@ function initIntroCurtain() {
    DYNAMIC TAB TITLE ROTATOR
    ========================================================================== */
 function initTabTitleRotator() {
-  const baseName = "Emir Zencircioğlu";
-  const roles = [
-    "Sermaye Piyasaları",
-    "Finans",
-    "Hazine & Yatırım",
-    "Teknoloji",
-    "Fintech & Analiz",
-  ];
+  window.__tabTitleConfig = window.__tabTitleConfig || {
+    baseName: "Emir Zencircioğlu",
+    roles: ["Sermaye Piyasaları", "Finans", "Hazine & Yatırım", "Teknoloji", "Fintech & Analiz"],
+  };
   let idx = 0;
-  document.title = `${baseName} · ${roles[idx]}`;
+  const apply = () => {
+    const cfg = window.__tabTitleConfig;
+    const list = cfg.roles && cfg.roles.length ? cfg.roles : ["Portfolyo"];
+    idx = idx % list.length;
+    document.title = `${cfg.baseName || "Emir Zencircioğlu"} · ${list[idx]}`;
+  };
+  apply();
 
   setInterval(() => {
-    idx = (idx + 1) % roles.length;
-    document.title = `${baseName} · ${roles[idx]}`;
+    const list = window.__tabTitleConfig?.roles || [];
+    if (!list.length) return;
+    idx = (idx + 1) % list.length;
+    apply();
   }, 2400);
 }
 
@@ -149,9 +153,88 @@ function hydrateProfile(data) {
   if (statEvent && data.events) statEvent.dataset.count = String(data.events.length);
 
   const avatar = document.getElementById("profileAvatar");
-  if (avatar && profile.avatar) avatar.src = profile.avatar;
+  const safeProfileAvatar = profile.avatar && !profile.avatar.startsWith("file://") ? profile.avatar : "";
+  if (avatar && safeProfileAvatar) avatar.src = safeProfileAvatar;
+
+  const hero = data.hero || {};
+  const site = data.site || {};
+  const contact = data.contact || {};
+
+  const safeHeroImg = hero.portraitImage && !hero.portraitImage.startsWith("file://")
+    ? hero.portraitImage
+    : safeProfileAvatar;
   const heroAvatar = document.getElementById("heroAvatar");
-  if (heroAvatar && profile.avatar) heroAvatar.src = profile.avatar;
+  if (heroAvatar && safeHeroImg) heroAvatar.src = safeHeroImg;
+
+  // Dinamik sekme başlıkları & en üst ticker
+  if (window.__tabTitleConfig) {
+    if (profile.name) window.__tabTitleConfig.baseName = profile.name;
+    if (Array.isArray(site.tabRoles) && site.tabRoles.length) {
+      window.__tabTitleConfig.roles = site.tabRoles;
+    }
+  }
+  const tickerTrack = document.getElementById("topTickerTrack");
+  if (tickerTrack && Array.isArray(site.tickerItems) && site.tickerItems.length) {
+    const doubled = [...site.tickerItems, ...site.tickerItems];
+    tickerTrack.innerHTML = doubled
+      .map((item) => `<span>${escapeHtml(item)}</span><i>◆</i>`)
+      .join("");
+  }
+  if (site.topCtaText) setText("topbarCta", site.topCtaText);
+
+  // Giriş (Hero) yazıları ve rozetleri
+  if (hero.kicker) setText("heroKicker", hero.kicker);
+  if (hero.titleLine1) setText("heroTitleLine1", hero.titleLine1);
+  if (hero.titlePrefix) setText("heroTitlePrefix", hero.titlePrefix);
+  if (hero.titleHighlight) setText("heroTitleHighlight", hero.titleHighlight);
+  if (hero.titleLine3) setText("heroTitleLine3", hero.titleLine3);
+  if (hero.subtitle) setText("heroSubtitle", hero.subtitle);
+  if (hero.primaryCtaText) setText("heroCtaPrimaryText", hero.primaryCtaText);
+  if (hero.secondaryCtaText) setText("heroCtaSecondaryText", hero.secondaryCtaText);
+  const heroPillarsWrap = document.getElementById("heroPillars");
+  if (heroPillarsWrap && Array.isArray(hero.pillars) && hero.pillars.length) {
+    heroPillarsWrap.innerHTML = hero.pillars
+      .map((item, idx) => `<div class="pillar-chip"><span>${String(idx + 1).padStart(2, "0")}</span> ${escapeHtml(item)}</div>`)
+      .join("");
+  }
+
+  // Bölüm başlıkları
+  if (site.aboutTag) setText("aboutTag", site.aboutTag);
+  if (site.aboutTitlePrefix) setText("aboutTitlePrefix", site.aboutTitlePrefix);
+  if (site.aboutTitleHighlight) setText("aboutTitleHighlight", site.aboutTitleHighlight);
+  if (site.projectsTag) setText("projectsTag", site.projectsTag);
+  if (site.projectsTitlePrefix) setText("projectsTitlePrefix", site.projectsTitlePrefix);
+  if (site.projectsTitleHighlight) setText("projectsTitleHighlight", site.projectsTitleHighlight);
+  if (site.projectsSub) setText("projectsSub", site.projectsSub);
+  if (site.eventsTag) setText("eventsTag", site.eventsTag);
+  if (site.eventsTitlePrefix) setText("eventsTitlePrefix", site.eventsTitlePrefix);
+  if (site.eventsTitleHighlight) setText("eventsTitleHighlight", site.eventsTitleHighlight);
+  if (site.ideasTag) setText("ideasTag", site.ideasTag);
+  if (site.ideasTitlePrefix) setText("ideasTitlePrefix", site.ideasTitlePrefix);
+  if (site.ideasTitleHighlight) setText("ideasTitleHighlight", site.ideasTitleHighlight);
+  if (site.ideasSub) setText("ideasSub", site.ideasSub);
+  if (site.socialTag) setText("socialTag", site.socialTag);
+  if (site.socialTitlePrefix) setText("socialTitlePrefix", site.socialTitlePrefix);
+  if (site.socialTitleHighlight) setText("socialTitleHighlight", site.socialTitleHighlight);
+
+  // Tanışalım (Contact) & Footer
+  if (contact.tag) setText("contactTag", contact.tag);
+  if (contact.titlePrefix) setText("contactTitlePrefix", contact.titlePrefix);
+  if (contact.titleHighlight) setText("contactTitleHighlight", contact.titleHighlight);
+  if (contact.description) setText("contactDesc", contact.description);
+  if (contact.footerNote) setText("footerNote", contact.footerNote);
+  if (contact.phoneDisplay) {
+    setText("phoneText", contact.phoneDisplay);
+    const digits = contact.phoneDisplay.replace(/\D/g, "");
+    const normalized = digits.startsWith("0") ? `+90${digits.slice(1)}` : `+${digits}`;
+    const href = contact.phoneHref || (digits ? `tel:${normalized}` : "");
+    if (href) {
+      const phoneLink = document.getElementById("phoneLink");
+      const phoneCallBtn = document.getElementById("phoneCallBtn");
+      if (phoneLink) phoneLink.href = href;
+      if (phoneCallBtn) phoneCallBtn.href = href;
+    }
+  }
 
   const interestsWrap = document.getElementById("profileInterests");
   if (interestsWrap && profile.interests) {
@@ -236,6 +319,7 @@ function renderProjects(projects) {
           </div>
           <h3 class="project-title" style="margin-top: 16px;">${escapeHtml(proj.title)}</h3>
           <p class="project-desc">${escapeHtml(proj.description)}</p>
+          ${proj.image ? `<div class="project-cover"><img src="${escapeHtml(proj.image)}" alt="${escapeHtml(proj.title)}" loading="lazy" /></div>` : ""}
         </div>
         <div>
           <div class="project-stack" style="margin-bottom: 18px;">
@@ -892,7 +976,7 @@ function initMobileMenu() {
   });
 }
 
-function initCopyEmail(email) {
+function initCopyEmail(email, phone) {
   const emailBtn = document.getElementById("copyEmailBtn");
   const phoneBtn = document.getElementById("copyPhoneBtn");
   const toast = document.getElementById("toast");
@@ -915,7 +999,7 @@ function initCopyEmail(email) {
 
   phoneBtn?.addEventListener("click", async () => {
     try {
-      await navigator.clipboard.writeText("0537 775 12 24");
+      await navigator.clipboard.writeText(phone || "0537 775 12 24");
     } catch {
       // Clipboard fallback
     }

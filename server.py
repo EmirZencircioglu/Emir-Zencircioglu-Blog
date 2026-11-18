@@ -181,11 +181,18 @@ def mask_gemini_key(api_key: str | None) -> str:
 
 def _build_portfolio_system_prompt(content: dict) -> str:
     profile = content.get("profile") or {}
+    hero = content.get("hero") or {}
+    contact = content.get("contact") or {}
     projects = content.get("projects") or []
     events = content.get("events") or []
     ideas = content.get("ideas") or []
     social = content.get("socialPosts") or []
     institutions = content.get("institutions") or []
+    phone_disp = str(contact.get("phoneDisplay") or "0537 775 12 24").strip()
+    contact_desc = str(
+        contact.get("description")
+        or "Üniversite eğitimini yazılım ve ürün geliştirme projeleriyle beslerken sermaye piyasaları, yatırım, hazine ve bankacılık süreçlerinde de kendini aktif geliştiren bir öğrenci; büyük ölçekli bankaların ve kurumsal şirketlerin hazine, yatırım veya teknoloji ekiplerinde sorumluluk almaya açık."
+    ).strip()
 
     proj_lines = [
         f"- {p.get('title')} ({p.get('year', '')}, {p.get('status', '')}): {p.get('description', '')} | Teknolojiler: {', '.join(p.get('stack') or [])}"
@@ -212,19 +219,18 @@ def _build_portfolio_system_prompt(content: dict) -> str:
         "1. Ziyaretçi hangi dilde yazarsa o dilde yanıt ver (varsayılan Türkçe).\n"
         "2. Sadece aşağıdaki güncel site verilerine ve bağlama dayan; bilmediğin bilgileri uydurma.\n"
         "3. Kısa, okunabilir ve doğrudan sorulara odaklanan yanıtlar ver.\n"
-        "4. İletişim veya staj/iş birliği sorulursa telefon (0537 775 12 24) ve e-posta bilgilerini paylaş.\n\n"
+        f"4. İletişim veya staj/iş birliği sorulursa telefon ({phone_disp}) ve e-posta bilgilerini paylaş.\n\n"
         f"=== PROFİL ===\n"
         f"Ad Soyad: {profile.get('name', 'Emir Zencircioğlu')}\n"
         f"Rol: {profile.get('role', '')}\n"
         f"Durum: {profile.get('status', '')}\n"
         f"Biyografi: {profile.get('bio', '')}\n"
-        f"Kariyer Hedefi & Konumlandırma: Üniversite eğitimini yazılım ve ürün geliştirme projeleriyle beslerken "
-        f"sermaye piyasaları, yatırım, hazine ve bankacılık süreçlerinde de kendini aktif geliştiren bir öğrenci; "
-        f"büyük ölçekli bankaların ve kurumsal şirketlerin hazine, yatırım veya teknoloji ekiplerinde sorumluluk almaya açık.\n"
+        f"Giriş Özeti: {hero.get('subtitle', '')}\n"
+        f"Kariyer Hedefi & Konumlandırma: {contact_desc}\n"
         f"İlgi Alanları: {', '.join(profile.get('interests') or [])}\n"
         f"Güncel Odak: {'; '.join(profile.get('now') or [])}\n"
         f"E-posta: {profile.get('email', 'ezencircioglu0024@gmail.com')}\n"
-        f"Telefon: 0537 775 12 24 (+90 537 775 12 24)\n"
+        f"Telefon: {phone_disp}\n"
         f"Katıldığı Kurumlar / Ekosistemler: {', '.join(institutions)}\n\n"
         f"=== PROJELER ===\n" + ("\n".join(proj_lines) or "Henüz proje listelenmedi.") + "\n\n"
         f"=== ETKİNLİK, BANKA VE ZİRVEMELER ===\n" + ("\n".join(event_lines) or "Henüz etkinlik listelenmedi.") + "\n\n"
@@ -1380,16 +1386,23 @@ class BlogHandler(BaseHTTPRequestHandler):
             self._send_json(401, {"error": "Yetkisiz erişim."})
             return
 
-        if path == "/api/admin/profile":
+        if path in ("/api/admin/profile", "/api/admin/site"):
             body = self._read_json_body(512 * 1024)
-            if not body or not isinstance(body.get("profile"), dict):
-                self._send_json(400, {"error": "Geçersiz profil verisi."})
+            if not isinstance(body, dict):
+                self._send_json(400, {"error": "Geçersiz veri formatı."})
                 return
             with CONTENT_LOCK:
                 content = load_content()
-                content["profile"].update(body["profile"])
+                if isinstance(body.get("profile"), dict):
+                    content.setdefault("profile", {}).update(body["profile"])
                 if isinstance(body.get("institutions"), list):
                     content["institutions"] = [str(x).strip() for x in body["institutions"] if str(x).strip()]
+                if isinstance(body.get("hero"), dict):
+                    content.setdefault("hero", {}).update(body["hero"])
+                if isinstance(body.get("contact"), dict):
+                    content.setdefault("contact", {}).update(body["contact"])
+                if isinstance(body.get("site"), dict):
+                    content.setdefault("site", {}).update(body["site"])
                 save_content(content)
             self._send_json(200, {"ok": True})
             return
