@@ -137,11 +137,11 @@ CHAT_RATE_LIMIT: dict[str, list[float]] = {}
 CHAT_MAX_REQUESTS = 20
 CHAT_WINDOW_SECONDS = 60
 GEMINI_MODELS = [
-    "gemini-flash-latest",
-    "gemini-2.5-flash",
-    "gemini-3-flash",
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
     "gemini-3.5-flash",
-    "gemini-2.0-flash",
+    "gemini-flash-latest",
+    "gemini-3.8-flash-lite",
 ]
 _CACHED_GEMINI_MODEL: str | None = None
 
@@ -338,32 +338,29 @@ def call_gemini_api(api_key: str, system_prompt: str, history: list, user_messag
     tried = set()
     initial_models = ([_CACHED_GEMINI_MODEL] if _CACHED_GEMINI_MODEL else []) + list(GEMINI_MODELS)
     last_error = "Gemini servisine bağlanılamadı."
-    all_404 = True
 
     for model in initial_models:
         if not model or model in tried:
             continue
         tried.add(model)
-        reply_text, err_msg, is_404 = _try_gemini_model(api_key, model, payload_bytes)
+        reply_text, err_msg, _ = _try_gemini_model(api_key, model, payload_bytes)
         if reply_text:
             _CACHED_GEMINI_MODEL = model
             return reply_text
-        if not is_404:
-            all_404 = False
         if err_msg:
             last_error = err_msg
 
-    if all_404:
-        for model in _discover_gemini_models(api_key):
-            if model in tried:
-                continue
-            tried.add(model)
-            reply_text, err_msg, _ = _try_gemini_model(api_key, model, payload_bytes)
-            if reply_text:
-                _CACHED_GEMINI_MODEL = model
-                return reply_text
-            if err_msg:
-                last_error = err_msg
+    # İlk liste 404/503 verirse API üzerinden mevcut tüm aktif modelleri keşfedip dene
+    for model in _discover_gemini_models(api_key):
+        if model in tried:
+            continue
+        tried.add(model)
+        reply_text, err_msg, _ = _try_gemini_model(api_key, model, payload_bytes)
+        if reply_text:
+            _CACHED_GEMINI_MODEL = model
+            return reply_text
+        if err_msg:
+            last_error = err_msg
 
     raise RuntimeError(last_error)
 
