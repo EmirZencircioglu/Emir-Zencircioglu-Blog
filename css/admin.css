@@ -516,3 +516,40 @@
   accent-color: #818cf8;
   cursor: pointer;
 }
+
+.item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.edit-btn {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  color: #a5b4fc;
+  border: 1px solid rgba(165, 180, 252, 0.3);
+  transition: background-color 0.2s ease;
+}
+
+.edit-btn:hover {
+  background: rgba(165, 180, 252, 0.14);
+}
+
+.admin-item-row.editing {
+  border-color: #818cf8;
+  background: rgba(129, 140, 248, 0.08);
+}
+
+.form-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.form-actions-row .full-btn {
+  margin-top: 0;
+}

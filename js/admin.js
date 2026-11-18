@@ -3,6 +3,7 @@
  */
 
 const VALID_VIEWS = ["overview", "blog", "events", "projects", "social", "automation", "profile"];
+let ADMIN_CONTENT = {};
 
 document.addEventListener("DOMContentLoaded", async () => {
   initNavigation();
@@ -11,6 +12,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initImageUpload("evFile", "evImageUrl", "evPreview");
   initAuthForms();
   initPublishForms();
+  initCancelEditButtons();
   initAutomationControls();
 
   await checkAuthAndBoot();
@@ -220,6 +222,7 @@ async function loadAdminContent() {
   const res = await fetch("/api/content", { cache: "no-store" });
   if (!res.ok) return;
   const content = await res.json();
+  ADMIN_CONTENT = content;
 
   hydrateProfileForm(content.profile, content.institutions);
   updateOverviewCounts(content);
@@ -375,18 +378,29 @@ function renderSectionList(containerId, countId, section, items, metaFormatter, 
   list.innerHTML = items
     .map(
       (item) => `
-      <div class="admin-item-row">
+      <div class="admin-item-row" data-row-id="${escapeHtml(item.id)}">
         <div class="admin-item-info">
           <div class="admin-item-title">${escapeHtml(item.title)}</div>
           <div class="admin-item-meta">${escapeHtml(metaFormatter(item))}</div>
         </div>
-        <button class="delete-btn" data-del-section="${escapeHtml(section)}" data-del-id="${escapeHtml(item.id)}">
-          Sil
-        </button>
+        <div class="item-actions">
+          <button type="button" class="edit-btn" data-edit-section="${escapeHtml(section)}" data-edit-id="${escapeHtml(item.id)}">
+            Düzenle
+          </button>
+          <button type="button" class="delete-btn" data-del-section="${escapeHtml(section)}" data-del-id="${escapeHtml(item.id)}">
+            Sil
+          </button>
+        </div>
       </div>
     `
     )
     .join("");
+
+  list.querySelectorAll("[data-edit-id]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      startEditingItem(btn.dataset.editSection, btn.dataset.editId);
+    });
+  });
 
   list.querySelectorAll("[data-del-id]").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -408,6 +422,132 @@ function renderSectionList(containerId, countId, section, items, metaFormatter, 
       }
     });
   });
+}
+
+function initCancelEditButtons() {
+  document.querySelectorAll("[data-cancel-edit]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      cancelEditing(btn.dataset.cancelEdit);
+    });
+  });
+}
+
+function setSocialPlatformUI(platform) {
+  const hidden = document.getElementById("socPlatform");
+  const selector = document.getElementById("platformSelector");
+  const ytField = document.getElementById("ytIdField");
+  if (hidden) hidden.value = platform;
+  if (selector) {
+    selector.querySelectorAll(".plat-choice").forEach((b) => {
+      b.classList.toggle("active", b.dataset.plat === platform);
+    });
+  }
+  if (ytField) ytField.classList.toggle("hidden", platform !== "youtube");
+}
+
+function startEditingItem(section, id) {
+  const item = (ADMIN_CONTENT[section] || []).find((x) => x.id === id);
+  if (!item) return;
+
+  const sectionFormMap = {
+    ideas: "formIdea",
+    events: "formEvent",
+    projects: "formProject",
+    socialPosts: "formSocial",
+  };
+  const formId = sectionFormMap[section];
+  const form = document.getElementById(formId);
+  if (!form) return;
+
+  form.dataset.editId = id;
+
+  // Görsel satır vurgusu
+  document.querySelectorAll(".admin-item-row.editing").forEach((r) => r.classList.remove("editing"));
+  document.querySelector(`.admin-item-row[data-row-id="${CSS.escape(id)}"]`)?.classList.add("editing");
+
+  // Başlık, buton ve iptal butonunu güncelle
+  const heading = document.querySelector(`[data-heading-for="${formId}"]`);
+  if (heading) heading.textContent = `Düzenleniyor: ${item.title}`;
+  const submitBtn = document.querySelector(`[data-submit-for="${formId}"]`);
+  if (submitBtn) submitBtn.textContent = "Değişiklikleri Kaydet";
+  document.querySelector(`[data-cancel-edit="${formId}"]`)?.classList.remove("hidden");
+
+  if (section === "ideas") {
+    setVal("ideaTag", item.tag || "");
+    setVal("ideaDate", item.date || "");
+    setVal("ideaReadTime", item.readTime || "");
+    setVal("ideaTitle", item.title || "");
+    setVal("ideaSummary", item.summary || "");
+    setVal("ideaContent", Array.isArray(item.content) ? item.content.join("\n\n") : item.content || "");
+  } else if (section === "events") {
+    setVal("evCategory", item.category || "zirve");
+    setVal("evDate", item.date || "");
+    setVal("evPlace", item.place || "");
+    setVal("evTitle", item.title || "");
+    setVal("evDesc", item.description || "");
+    setVal("evImageUrl", item.image || "");
+    const preview = document.getElementById("evPreview");
+    if (preview) {
+      if (item.image) {
+        preview.src = item.image;
+        preview.classList.remove("hidden");
+      } else {
+        preview.classList.add("hidden");
+      }
+    }
+  } else if (section === "projects") {
+    setVal("projTitle", item.title || "");
+    setVal("projYear", item.year || "");
+    setVal("projStatus", item.status || "");
+    setVal("projDesc", item.description || "");
+    setVal("projStack", Array.isArray(item.stack) ? item.stack.join(", ") : item.stack || "");
+    setVal("projGithub", item.githubUrl || "");
+    setVal("projLive", item.liveUrl || "");
+  } else if (section === "socialPosts") {
+    setSocialPlatformUI(item.platform || "instagram");
+    setVal("socDate", item.date || "");
+    setVal("socMetric", item.metric || "");
+    setVal("socTitle", item.title || "");
+    setVal("socExcerpt", item.excerpt || "");
+    setVal("socYtId", item.youtubeId || "");
+    setVal("socUrl", item.url || "");
+    setVal("socImageUrl", item.image || "");
+    const preview = document.getElementById("socPreview");
+    if (preview) {
+      if (item.image) {
+        preview.src = item.image;
+        preview.classList.remove("hidden");
+      } else {
+        preview.classList.add("hidden");
+      }
+    }
+  }
+
+  form.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function cancelEditing(formId) {
+  const form = document.getElementById(formId);
+  if (!form) return;
+  delete form.dataset.editId;
+  form.reset();
+
+  document.querySelectorAll(".admin-item-row.editing").forEach((r) => r.classList.remove("editing"));
+
+  const heading = document.querySelector(`[data-heading-for="${formId}"]`);
+  if (heading && heading.dataset.defaultTitle) heading.textContent = heading.dataset.defaultTitle;
+
+  const submitBtn = document.querySelector(`[data-submit-for="${formId}"]`);
+  if (submitBtn && submitBtn.dataset.defaultLabel) submitBtn.textContent = submitBtn.dataset.defaultLabel;
+
+  document.querySelector(`[data-cancel-edit="${formId}"]`)?.classList.add("hidden");
+
+  if (formId === "formSocial") {
+    setSocialPlatformUI("instagram");
+    document.getElementById("socPreview")?.classList.add("hidden");
+  } else if (formId === "formEvent") {
+    document.getElementById("evPreview")?.classList.add("hidden");
+  }
 }
 
 function hydrateProfileForm(profile, institutions) {
@@ -456,7 +596,7 @@ function initPublishForms() {
       image: val("socImageUrl") || null,
     };
     const ytId = val("socYtId");
-    if (platform === "youtube" && ytId) item.youtubeId = ytId;
+    item.youtubeId = platform === "youtube" && ytId ? ytId : null;
 
     await publishItem("socialPosts", item, e.target, "socPreview");
   });
@@ -491,7 +631,7 @@ function initPublishForms() {
       place: val("evPlace"),
       title: val("evTitle"),
       description: val("evDesc"),
-      image: val("evImageUrl"),
+      image: val("evImageUrl") || null,
     };
     await publishItem("events", item, e.target, "evPreview");
   });
@@ -553,20 +693,29 @@ function initPublishForms() {
 }
 
 async function publishItem(section, item, form, previewId) {
+  const editId = form.dataset.editId;
+  const isEditing = Boolean(editId);
+
   const res = await fetch("/api/admin/item", {
-    method: "POST",
+    method: isEditing ? "PUT" : "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ section, item }),
+    body: JSON.stringify(isEditing ? { section, id: editId, item } : { section, item }),
   });
 
   if (res.ok) {
-    form.reset();
-    if (previewId) document.getElementById(previewId)?.classList.add("hidden");
-    showToast("İçerik başarıyla yayınlandı!");
+    if (isEditing) {
+      cancelEditing(form.id);
+      showToast("İçerik başarıyla güncellendi!");
+    } else {
+      form.reset();
+      if (form.id === "formSocial") setSocialPlatformUI("instagram");
+      if (previewId) document.getElementById(previewId)?.classList.add("hidden");
+      showToast("İçerik başarıyla yayınlandı!");
+    }
     await loadAdminContent();
   } else {
     const data = await res.json().catch(() => ({}));
-    showToast(data.error || "Yayınlama başarısız.", true);
+    showToast(data.error || "İşlem başarısız.", true);
   }
 }
 

@@ -1013,12 +1013,44 @@ class BlogHandler(BaseHTTPRequestHandler):
             if not body or not isinstance(body.get("profile"), dict):
                 self._send_json(400, {"error": "Geçersiz profil verisi."})
                 return
-            content = load_content()
-            content["profile"].update(body["profile"])
-            if isinstance(body.get("institutions"), list):
-                content["institutions"] = [str(x).strip() for x in body["institutions"] if str(x).strip()]
-            save_content(content)
+            with CONTENT_LOCK:
+                content = load_content()
+                content["profile"].update(body["profile"])
+                if isinstance(body.get("institutions"), list):
+                    content["institutions"] = [str(x).strip() for x in body["institutions"] if str(x).strip()]
+                save_content(content)
             self._send_json(200, {"ok": True})
+            return
+
+        if path == "/api/admin/item":
+            body = self._read_json_body(1024 * 1024)
+            if not body:
+                self._send_json(400, {"error": "Geçersiz içerik verisi."})
+                return
+            section = body.get("section")
+            item_id = body.get("id")
+            item = body.get("item")
+            if section not in {"socialPosts", "projects", "ideas", "events"} or not item_id or not isinstance(item, dict):
+                self._send_json(400, {"error": "Geçersiz bölüm, ID veya öğe."})
+                return
+
+            with CONTENT_LOCK:
+                content = load_content()
+                items = content.get(section, [])
+                updated = None
+                for idx, existing in enumerate(items):
+                    if existing.get("id") == item_id:
+                        merged = dict(existing)
+                        merged.update(item)
+                        merged["id"] = item_id
+                        items[idx] = merged
+                        updated = merged
+                        break
+                if updated is None:
+                    self._send_json(404, {"error": "Düzenlenecek öğe bulunamadı."})
+                    return
+                save_content(content)
+            self._send_json(200, {"ok": True, "item": updated})
             return
 
         self._send_json(404, {"error": "Bilinmeyen uç nokta."})

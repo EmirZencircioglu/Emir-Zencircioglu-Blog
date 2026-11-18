@@ -169,7 +169,7 @@
 
         <div class="admin-grid">
           <div class="admin-panel-card">
-            <h2>Yeni Yazı Oluştur</h2>
+            <h2 data-heading-for="formIdea" data-default-title="Yeni Yazı Oluştur">Yeni Yazı Oluştur</h2>
             <form id="formIdea" class="admin-form">
               <div class="field-row">
                 <label class="field">
@@ -199,7 +199,10 @@
                 <span>İçerik (Her paragrafı boş bir satırla ayır)</span>
                 <textarea id="ideaContent" rows="8" required placeholder="Birinci paragraf...&#10;&#10;İkinci paragraf..."></textarea>
               </label>
-              <button type="submit" class="btn btn-primary full-btn">Blog Yazısını Yayınla</button>
+              <div class="form-actions-row">
+                <button type="submit" class="btn btn-primary full-btn" data-submit-for="formIdea" data-default-label="Blog Yazısını Yayınla">Blog Yazısını Yayınla</button>
+                <button type="button" class="btn btn-ghost hidden" data-cancel-edit="formIdea">İptal</button>
+              </div>
             </form>
           </div>
 
@@ -225,7 +228,7 @@
 
         <div class="admin-grid">
           <div class="admin-panel-card">
-            <h2>Yeni Etkinlik / Fotoğraf Ekle</h2>
+            <h2 data-heading-for="formEvent" data-default-title="Yeni Etkinlik / Fotoğraf Ekle">Yeni Etkinlik / Fotoğraf Ekle</h2>
             <form id="formEvent" class="admin-form">
               <div class="field-row">
                 <label class="field">
@@ -263,7 +266,10 @@
                 </div>
                 <img id="evPreview" class="upload-preview hidden" alt="Önizleme" />
               </div>
-              <button type="submit" class="btn btn-primary full-btn">Etkinliği Yayınla</button>
+              <div class="form-actions-row">
+                <button type="submit" class="btn btn-primary full-btn" data-submit-for="formEvent" data-default-label="Etkinliği Yayınla">Etkinliği Yayınla</button>
+                <button type="button" class="btn btn-ghost hidden" data-cancel-edit="formEvent">İptal</button>
+              </div>
             </form>
           </div>
 
@@ -289,7 +295,7 @@
 
         <div class="admin-grid">
           <div class="admin-panel-card">
-            <h2>Proje Bilgileri</h2>
+            <h2 data-heading-for="formProject" data-default-title="Proje Bilgileri">Proje Bilgileri</h2>
             <form id="formProject" class="admin-form">
               <div class="field-row">
                 <label class="field">
@@ -322,7 +328,10 @@
                   <input type="text" id="projLive" placeholder="https://... veya #" />
                 </label>
               </div>
-              <button type="submit" class="btn btn-primary full-btn">Projeyi Yayınla</button>
+              <div class="form-actions-row">
+                <button type="submit" class="btn btn-primary full-btn" data-submit-for="formProject" data-default-label="Projeyi Yayınla">Projeyi Yayınla</button>
+                <button type="button" class="btn btn-ghost hidden" data-cancel-edit="formProject">İptal</button>
+              </div>
             </form>
           </div>
 
@@ -348,7 +357,7 @@
 
         <div class="admin-grid">
           <div class="admin-panel-card">
-            <h2>Yeni Sosyal Gönderi</h2>
+            <h2 data-heading-for="formSocial" data-default-title="Yeni Sosyal Gönderi">Yeni Sosyal Gönderi</h2>
             <form id="formSocial" class="admin-form">
               <div class="field">
                 <span>Platform Seç</span>
@@ -401,7 +410,10 @@
                 <img id="socPreview" class="upload-preview hidden" alt="Önizleme" />
               </div>
 
-              <button type="submit" class="btn btn-primary full-btn">Sosyal Gönderiyi Yayınla</button>
+              <div class="form-actions-row">
+                <button type="submit" class="btn btn-primary full-btn" data-submit-for="formSocial" data-default-label="Sosyal Gönderiyi Yayınla">Sosyal Gönderiyi Yayınla</button>
+                <button type="button" class="btn btn-ghost hidden" data-cancel-edit="formSocial">İptal</button>
+              </div>
             </form>
           </div>
 
