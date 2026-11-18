@@ -18,6 +18,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
   if (!data) return;
+  window.__APP_DATA = data;
 
   hydrateProfile(data);
   renderMarquee(data.institutions || []);
@@ -293,12 +294,15 @@ function initDossierTabs() {
 function initHeroTicker(interests) {
   const el = document.getElementById("heroTicker");
   if (!el) return;
-  const items = interests && interests.length ? interests : ["Yazılım Mimarisi", "Ürün Geliştirme", "Topluluk & Zirveler"];
+  window.__heroTickerItems = interests && interests.length ? interests : ["Yazılım Mimarisi", "Ürün Geliştirme", "Topluluk & Zirveler"];
   let idx = 0;
-  el.textContent = items[0];
-  if (items.length < 2) return;
+  el.textContent = window.__heroTickerItems[0];
 
+  if (window.__heroTickerStarted) return;
+  window.__heroTickerStarted = true;
   setInterval(() => {
+    const items = window.__heroTickerItems || [];
+    if (items.length < 2) return;
     el.classList.add("switching");
     setTimeout(() => {
       idx = (idx + 1) % items.length;
@@ -351,7 +355,7 @@ function renderProjects(projects) {
           </div>
           <div class="project-links">
             ${proj.githubUrl && proj.githubUrl !== "#" ? `<a href="${escapeHtml(proj.githubUrl)}" target="_blank" rel="noopener noreferrer">GitHub ↗</a>` : ""}
-            ${proj.liveUrl && proj.liveUrl !== "#" ? `<a href="${escapeHtml(proj.liveUrl)}" target="_blank" rel="noopener noreferrer">Canlı Önizleme ↗</a>` : ""}
+            ${proj.liveUrl && proj.liveUrl !== "#" ? `<a href="${escapeHtml(proj.liveUrl)}" target="_blank" rel="noopener noreferrer">${document.documentElement.getAttribute("data-lang") === "en" ? "Live Preview ↗" : "Canlı Önizleme ↗"}</a>` : ""}
           </div>
         </div>
       </article>
@@ -533,7 +537,7 @@ function initFilters(data) {
     credBar.querySelectorAll(".filter-btn").forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
     moveFilterPill(credBar);
-    renderCredentials(data.credentials || [], btn.dataset.credFilter);
+    renderCredentials((window.__APP_DATA || data).credentials || [], btn.dataset.credFilter);
   });
 
   socialBar?.addEventListener("click", (e) => {
@@ -542,7 +546,7 @@ function initFilters(data) {
     socialBar.querySelectorAll(".filter-btn").forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
     moveFilterPill(socialBar);
-    renderSocialFeed(data.socialPosts || [], btn.dataset.filter);
+    renderSocialFeed((window.__APP_DATA || data).socialPosts || [], btn.dataset.filter);
   });
 
   document.querySelectorAll("[data-jump-platform]").forEach((pill) => {
@@ -553,7 +557,7 @@ function initFilters(data) {
         socialBar.querySelectorAll(".filter-btn").forEach((b) => b.classList.remove("active"));
         targetBtn.classList.add("active");
         moveFilterPill(socialBar);
-        renderSocialFeed(data.socialPosts || [], platform);
+        renderSocialFeed((window.__APP_DATA || data).socialPosts || [], platform);
       }
     });
   });
@@ -564,7 +568,7 @@ function initFilters(data) {
     eventBar.querySelectorAll(".filter-btn").forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
     moveFilterPill(eventBar);
-    renderEvents(data.events || [], btn.dataset.eventFilter);
+    renderEvents((window.__APP_DATA || data).events || [], btn.dataset.eventFilter);
   });
 }
 
@@ -590,7 +594,7 @@ function initModals(data) {
   document.getElementById("ideasList")?.addEventListener("click", (e) => {
     const row = e.target.closest(".idea-row");
     if (!row) return;
-    const idea = (data.ideas || []).find((i) => i.id === row.dataset.ideaId);
+    const idea = ((window.__APP_DATA || data).ideas || []).find((i) => i.id === row.dataset.ideaId);
     if (!idea) return;
 
     setText("modalArticleMeta", `${idea.date} · ${idea.tag} · ${idea.readTime}`);
@@ -854,7 +858,7 @@ function initRevealObserver() {
     { threshold: 0.1, rootMargin: "0px 0px -40px 0px" }
   );
 
-  document.querySelectorAll(".reveal-up").forEach((el) => observer.observe(el));
+  document.querySelectorAll(".reveal-up:not(.is-visible)").forEach((el) => observer.observe(el));
 }
 
 function initCounters() {
@@ -1480,64 +1484,77 @@ function initContactMessageForm() {
 /* ==========================================================================
    TR / EN LANGUAGE TOGGLE
    ========================================================================== */
-function initLanguageToggle(data) {
+function initLanguageToggle(initialData) {
   const btn = document.getElementById("langToggle");
   if (!btn) return;
 
-  const trSnapshot = {};
-  const trackedIds = [
-    "topbarCta", "heroCtaPrimaryText", "heroCtaSecondaryText", "heroCvBtnText",
-    "aboutTag", "aboutTitlePrefix", "aboutTitleHighlight",
-    "credTag", "credTitlePrefix", "credTitleHighlight",
-    "projectsTag", "projectsTitlePrefix", "projectsTitleHighlight", "projectsSub",
-    "eventsTag", "eventsTitlePrefix", "eventsTitleHighlight",
-    "ideasTag", "ideasTitlePrefix", "ideasTitleHighlight", "ideasSub",
-    "socialTag", "socialTitlePrefix", "socialTitleHighlight",
-    "contactTag", "contactTitlePrefix", "contactTitleHighlight", "contactDesc",
-    "contactCvLabel", "contactCvTitle", "contactCvViewBtn", "contactCvBtn",
-    "msgFormTag", "msgFormTitle", "msgSubmitBtn", "footerNote", "chatBotTitle",
-  ];
-  trackedIds.forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) trSnapshot[id] = el.textContent;
-  });
+  const trData = initialData;
+  let enData = null;
 
-  function applyLang(lang) {
+  const trStatic = {
+    heroCvBtnText: document.getElementById("heroCvBtnText")?.textContent || "CV İndir (PDF) ↓",
+    aboutTag: "01 / HAKKIMDA",
+    credTag: "EĞİTİM, SERTİFİKA & YETKİNLİK",
+    credTitlePrefix: "Akademik &",
+    credTitleHighlight: "Teknik Donanım",
+    projectsTag: "02 / PROJELER",
+    projectsSub: "MİMARİ · ÜRÜN · OTOMASYON",
+    eventsTag: "03 / SAHA, KURUMLAR & ZİRVELER",
+    ideasTag: "04 / FİKİRLER & ANALİZLER",
+    ideasSub: "OKUNABİLİR MAKALELER",
+    socialTag: "05 / CANLI SOSYAL AKIŞ",
+    contactTag: "06 / TANIŞALIM",
+    contactCvLabel: "ÖZGEÇMİŞ (PDF)",
+    contactCvTitle: "Güncel CV dosyamı tek tıkla inceleyebilir veya indirebilirsiniz.",
+    contactCvViewBtn: "Görüntüle ↗",
+    contactCvBtn: "PDF İndir ↓",
+    msgFormTag: "HIZLI MESAJ & GÖRÜŞME TALEBİ",
+    msgFormTitle: "Doğrudan not bırakın; mesajınız anında panelime ulaşır.",
+    msgSubmitBtn: "Mesajı Gönder →",
+  };
+
+  function rerenderWithDataset(dataset, lang) {
+    window.__APP_DATA = dataset;
+    hydrateProfile(dataset);
+    initHeroTicker(dataset.profile?.interests || []);
+    renderMarquee(dataset.institutions || []);
+
+    const activeCred = document.querySelector("#credFilters .filter-btn.active")?.dataset.credFilter || "all";
+    const activeEvent = document.querySelector("#eventFilters .filter-btn.active")?.dataset.eventFilter || "all";
+    const activeSoc = document.querySelector("#socialFilters .filter-btn.active")?.dataset.filter || "all";
+
+    renderCredentials(dataset.credentials || [], activeCred);
+    renderProjects(dataset.projects || []);
+    renderEvents(dataset.events || [], activeEvent);
+    renderIdeas(dataset.ideas || []);
+    renderSocialFeed(dataset.socialPosts || [], activeSoc);
+    renderFooterSocials(dataset.profile?.socialLinks || []);
+
+    initRevealObserver();
+    initTiltCards();
+    applyChromeTranslations(lang, dataset);
+  }
+
+  function applyChromeTranslations(lang, dataset) {
+    const isEn = lang === "en";
     document.documentElement.setAttribute("data-lang", lang);
     document.documentElement.lang = lang;
     localStorage.setItem("blog-lang-v1", lang);
-    btn.textContent = lang === "tr" ? "EN" : "TR";
+    btn.textContent = isEn ? "TR" : "EN";
 
-    const isEn = lang === "en";
-    const enMap = {
-      topbarCta: "Let's Connect ↗",
-      heroCtaPrimaryText: "Get in Touch",
-      heroCtaSecondaryText: "Projects & Summits",
+    const enStatic = {
       heroCvBtnText: "Download CV (PDF) ↓",
       aboutTag: "01 / ABOUT",
-      aboutTitlePrefix: "Interdisciplinary",
-      aboutTitleHighlight: "Profile",
       credTag: "EDUCATION, CERTIFICATIONS & SKILLS",
       credTitlePrefix: "Academic &",
       credTitleHighlight: "Technical Toolkit",
       projectsTag: "02 / PROJECTS",
-      projectsTitlePrefix: "Systems I've",
-      projectsTitleHighlight: "Built",
       projectsSub: "ARCHITECTURE · PRODUCT · AUTOMATION",
       eventsTag: "03 / INSTITUTIONS & SUMMITS",
-      eventsTitlePrefix: "Attended",
-      eventsTitleHighlight: "Ecosystems",
       ideasTag: "04 / IDEAS & ANALYSES",
-      ideasTitlePrefix: "Notes &",
-      ideasTitleHighlight: "Perspectives",
       ideasSub: "READABLE ARTICLES",
       socialTag: "05 / LIVE SOCIAL STREAM",
-      socialTitlePrefix: "Instagram, LinkedIn, GitHub &",
-      socialTitleHighlight: "YouTube",
       contactTag: "06 / LET'S CONNECT",
-      contactTitlePrefix: "Ready to create value across capital markets, treasury, and",
-      contactTitleHighlight: "technology.",
-      contactDesc: "As a university student combining software engineering with capital markets, investment, and treasury initiatives, I am open to taking responsibility in treasury, investment, or technology teams at leading banks and corporate institutions.",
       contactCvLabel: "CURRICULUM VITAE (PDF)",
       contactCvTitle: "View or download my latest resume in one click.",
       contactCvViewBtn: "Preview ↗",
@@ -1545,19 +1562,22 @@ function initLanguageToggle(data) {
       msgFormTag: "QUICK NOTE & INTERVIEW REQUEST",
       msgFormTitle: "Leave a note directly — it arrives straight in my inbox.",
       msgSubmitBtn: "Send Message →",
-      footerNote: "All rights reserved.",
     };
 
-    trackedIds.forEach((id) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      if (isEn && enMap[id]) {
-        el.textContent = enMap[id];
-      } else if (!isEn && trSnapshot[id] !== undefined) {
-        el.textContent = trSnapshot[id];
-      }
-    });
+    const map = isEn ? enStatic : trStatic;
+    Object.entries(map).forEach(([id, txt]) => setText(id, txt));
 
+    // Telefon & E-posta kart etiketleri
+    const callBtn = document.getElementById("phoneCallBtn");
+    const copyPhone = document.getElementById("copyPhoneBtn");
+    const mailBtn = document.getElementById("mailtoActionBtn");
+    const copyMail = document.getElementById("copyEmailBtn");
+    if (callBtn) callBtn.textContent = isEn ? "Call ↗" : "Ara ↗";
+    if (copyPhone) copyPhone.textContent = isEn ? "Copy" : "Kopyala";
+    if (mailBtn) mailBtn.textContent = isEn ? "Send Email ↗" : "Mail Gönder ↗";
+    if (copyMail) copyMail.textContent = isEn ? "Copy" : "Kopyala";
+
+    // Sağ navigasyon rayı
     const railMap = {
       hero: isEn ? "Intro" : "Giriş",
       about: isEn ? "Profile" : "Profil",
@@ -1574,25 +1594,23 @@ function initLanguageToggle(data) {
       if (lbl && railMap[key]) lbl.textContent = railMap[key];
     });
 
+    // Filtre butonları
     const filterText = {
       eventFilters: isEn ? { all: "All", zirve: "Summit", sirket: "Company", etkinlik: "Community" } : { all: "Tümü", zirve: "Zirve", sirket: "Şirket & Kurum", etkinlik: "Topluluk" },
       credFilters: isEn ? { all: "All", egitim: "Education", sertifika: "Certification", yetkinlik: "Skill" } : { all: "Tümü", egitim: "Eğitim", sertifika: "Sertifika", yetkinlik: "Yetkinlik" },
       socialFilters: isEn ? { all: "All" } : { all: "Tümü" },
     };
-    Object.entries(filterText).forEach(([barId, map]) => {
+    Object.entries(filterText).forEach(([barId, fMap]) => {
       const bar = document.getElementById(barId);
       if (!bar) return;
       bar.querySelectorAll(".filter-btn").forEach((b) => {
         const key = b.dataset.eventFilter || b.dataset.credFilter || b.dataset.filter;
-        if (key && map[key]) b.textContent = map[key];
+        if (key && fMap[key]) b.textContent = fMap[key];
       });
       moveFilterPill(bar);
     });
 
-    const chatInput = document.getElementById("chatInput");
-    if (chatInput) {
-      chatInput.placeholder = isEn ? "Ask anything about Emir..." : "Emir hakkında bir soru sorun...";
-    }
+    // Form placeholders
     const msgName = document.getElementById("msgName");
     const msgOrg = document.getElementById("msgOrg");
     const msgContact = document.getElementById("msgContact");
@@ -1603,13 +1621,85 @@ function initLanguageToggle(data) {
     if (msgContact) msgContact.placeholder = isEn ? "Email or Phone *" : "E-posta veya Telefon *";
     if (msgTopic) msgTopic.placeholder = isEn ? "Topic (e.g. Internship, Treasury, Collaboration)" : "Konu (ör. Staj, Hazine Ekibi, İş Birliği)";
     if (msgBody) msgBody.placeholder = isEn ? "Write your message or interview request... *" : "Mesajınızı veya görüşme talebinizi yazın... *";
+
+    // Chatbot metinleri & hızlı soru butonları
+    const firstName = (dataset.profile?.name || "Emir").trim().split(/\s+/)[0];
+    const chatInput = document.getElementById("chatInput");
+    if (chatInput) chatInput.placeholder = isEn ? `Ask anything about ${firstName}...` : `${firstName} hakkında bir soru sorun...`;
+    setText("chatHeadSubText", "");
+    const headSub = document.querySelector(".chat-head-sub");
+    if (headSub) headSub.textContent = isEn ? "Capital Markets · Finance · Software" : "Sermaye Piyasaları · Finans · Yazılım";
+
+    const chips = document.querySelectorAll("#chatSuggestions .chat-chip");
+    const chipPairs = isEn
+      ? [
+          ["Capital markets & treasury", `What are ${firstName}'s interests and goals in capital markets, treasury, and finance?`],
+          ["What are his projects?", `Which software projects has ${firstName} built?`],
+          ["Contact details", `How can we reach ${firstName} for an internship or collaboration?`],
+        ]
+      : [
+          ["Sermaye piyasaları & hazine", "Emir'in sermaye piyasaları, hazine ve finans alanındaki ilgisi ve hedefleri nelerdir?"],
+          ["Projeleri neler?", "Emir hangi yazılım projelerini geliştirdi?"],
+          ["İletişim bilgileri", "Emir'e staj veya iş birliği için nasıl ulaşabiliriz?"],
+        ];
+    chips.forEach((chip, i) => {
+      if (chipPairs[i]) {
+        chip.textContent = chipPairs[i][0];
+        chip.dataset.prompt = chipPairs[i][1];
+      }
+    });
+
+    // Sohbet henüz kullanıcı mesajı içermiyorsa karşılama mesajını seçili dile çevir
+    const msgsWrap = document.getElementById("chatMessages");
+    if (msgsWrap && !msgsWrap.querySelector(".chat-msg-user")) {
+      const firstBotMsg = msgsWrap.querySelector(".chat-msg-bot");
+      if (firstBotMsg) {
+        firstBotMsg.innerHTML = isEn
+          ? `Hello! I'm <strong>${escapeHtml(firstName)}'s AI assistant.</strong><br><br>Feel free to ask about his focus on capital markets, treasury &amp; banking, software projects, summits, or contact details.`
+          : `Merhaba! Ben <strong>${escapeHtml(firstName)}'in AI asistanıyım.</strong><br><br>Sermaye piyasaları, hazine ve bankacılık ilgisi, yazılım projeleri, katıldığı zirveler veya iletişim bilgileri hakkında merak ettiğiniz her şeyi sorabilirsiniz.`;
+      }
+    }
+  }
+
+  async function switchToLang(targetLang) {
+    if (targetLang === "tr") {
+      rerenderWithDataset(trData, "tr");
+      return;
+    }
+
+    if (enData) {
+      rerenderWithDataset(enData, "en");
+      return;
+    }
+
+    if (window.location.protocol === "file:") {
+      applyChromeTranslations("en", trData);
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "...";
+    try {
+      const res = await fetch("/api/translate?lang=en", { cache: "no-store" });
+      const payload = await res.json().catch(() => ({}));
+      if (res.ok && payload.data) {
+        enData = payload.data;
+        rerenderWithDataset(enData, "en");
+      } else {
+        applyChromeTranslations("en", trData);
+      }
+    } catch {
+      applyChromeTranslations("en", trData);
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   const savedLang = localStorage.getItem("blog-lang-v1");
-  if (savedLang === "en") applyLang("en");
+  if (savedLang === "en") switchToLang("en");
 
   btn.addEventListener("click", () => {
     const current = document.documentElement.getAttribute("data-lang") || "tr";
-    applyLang(current === "tr" ? "en" : "tr");
+    switchToLang(current === "tr" ? "en" : "tr");
   });
 }

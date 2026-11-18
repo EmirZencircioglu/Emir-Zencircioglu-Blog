@@ -53,10 +53,12 @@ SECRET_FILE = DATA_DIR / "admin_secret.json"
 FEEDS_FILE = DATA_DIR / "feeds.json"
 MESSAGES_FILE = DATA_DIR / "messages.json"
 CHAT_LOGS_FILE = DATA_DIR / "chat_logs.json"
+TRANSLATION_EN_FILE = DATA_DIR / "translations_en.json"
 
 CONTENT_LOCK = threading.Lock()
 MESSAGES_LOCK = threading.Lock()
 CHAT_LOGS_LOCK = threading.Lock()
+TRANSLATE_LOCK = threading.Lock()
 BOT_INTERVAL_SECONDS = 300  # 5 dakikada bir otomatik kontrol
 BOT_LAST_RUN = {"time": None, "added": 0, "error": None}
 
@@ -482,7 +484,7 @@ def _discover_gemini_models(api_key: str) -> list[str]:
     return candidates
 
 
-def _try_gemini_model(api_key: str, model: str, payload_bytes: bytes, fallback_bytes: bytes | None = None) -> tuple[str | None, str | None, bool]:
+def _try_gemini_model(api_key: str, model: str, payload_bytes: bytes, fallback_bytes: bytes | None = None, timeout_sec: float = 7) -> tuple[str | None, str | None, bool]:
     """Tek bir modeli dener: (reply_text, err_msg, retryable). Yoğunlukta (429/503) diğer modele geçer."""
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     req = urllib.request.Request(
@@ -495,7 +497,7 @@ def _try_gemini_model(api_key: str, model: str, payload_bytes: bytes, fallback_b
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=7) as resp:
+        with urllib.request.urlopen(req, timeout=timeout_sec) as resp:
             data = json.loads(resp.read().decode("utf-8"))
         candidates = data.get("candidates") or []
         if candidates:
@@ -516,7 +518,7 @@ def _try_gemini_model(api_key: str, model: str, payload_bytes: bytes, fallback_b
         if e.code in (401, 403) or (e.code == 400 and "api key" in err_body.lower()):
             raise RuntimeError("Gemini API anahtarı geçersiz veya yetkisiz görünüyor.") from e
         if e.code == 400 and "developer instruction" in err_body.lower() and fallback_bytes is not None:
-            return _try_gemini_model(api_key, model, fallback_bytes, None)
+            return _try_gemini_model(api_key, model, fallback_bytes, None, timeout_sec)
         if e.code == 429:
             _set_model_cooldown(model, 300)
         elif e.code == 404:
@@ -540,50 +542,20 @@ def _try_gemini_model(api_key: str, model: str, payload_bytes: bytes, fallback_b
         return None, f"Bağlantı hatası ({model}): {e}", True
 
 
-def call_gemini_api(api_key: str, system_prompt: str, history: list, user_message: str) -> str:
+def _run_gemini_with_failover(
+    api_key: str,
+    payload_bytes: bytes,
+    fallback_bytes: bytes,
+    timeout_sec: float = 7,
+    budget_sec: float = 18,
+) -> str:
     global _CACHED_GEMINI_MODEL
-    contents = []
-    if isinstance(history, list):
-        for turn in history[-10:]:
-            if not isinstance(turn, dict):
-                continue
-            role = "model" if turn.get("role") == "model" else "user"
-            text = str(turn.get("text", "")).strip()
-            if text:
-                contents.append({"role": role, "parts": [{"text": text[:1500]}]})
-    contents.append({"role": "user", "parts": [{"text": user_message[:1500]}]})
-
-    payload_bytes = json.dumps(
-        {
-            "systemInstruction": {"parts": [{"text": system_prompt}]},
-            "contents": contents,
-            "generationConfig": {
-                "temperature": 0.65,
-                "maxOutputTokens": 650,
-            },
-        },
-        ensure_ascii=False,
-    ).encode("utf-8")
-
-    fallback_contents = [
-        {"role": "user", "parts": [{"text": f"[SİSTEM TALİMATI]\n{system_prompt}\n\n[SORU]\n{contents[0]['parts'][0]['text']}"}]},
-        *contents[1:],
-    ]
-    fallback_bytes = json.dumps(
-        {
-            "contents": fallback_contents,
-            "generationConfig": {"temperature": 0.65, "maxOutputTokens": 650},
-        },
-        ensure_ascii=False,
-    ).encode("utf-8")
-
     last_error = "Gemini servisine bağlanılamadı."
     start_ts = time.monotonic()
 
-    # 1. Önce bilinen çalışan modeli doğrudan dene (~1 sn)
     cached_model = _get_working_gemini_model()
     if cached_model and not _is_model_cooled_down(cached_model):
-        reply_text, err_msg, _ = _try_gemini_model(api_key, cached_model, payload_bytes, fallback_bytes)
+        reply_text, err_msg, _ = _try_gemini_model(api_key, cached_model, payload_bytes, fallback_bytes, timeout_sec)
         if reply_text:
             _save_working_gemini_model(cached_model)
             return reply_text
@@ -593,27 +565,25 @@ def call_gemini_api(api_key: str, system_prompt: str, history: list, user_messag
             if _CACHED_GEMINI_MODEL == cached_model:
                 _CACHED_GEMINI_MODEL = None
 
-    # 2. Aktif tüm modelleri çek ve bekleme süresi dolmamışları paralel 4'lü dalgalar halinde dene
     discovered = _discover_gemini_models(api_key)
     pool = discovered if discovered else list(GEMINI_MODELS)
     active_pool = [m for m in pool if m and m != cached_model and not _is_model_cooled_down(m)]
     if not active_pool:
-        # Hepsi geçici soğumadaysa baştan en güncel birkaç adayı tekrar dene
         active_pool = [m for m in pool if m and m != cached_model][:8]
 
     for i in range(0, len(active_pool), 4):
-        if time.monotonic() - start_ts > 18:
+        if time.monotonic() - start_ts > budget_sec:
             break
         batch = active_pool[i:i + 4]
         executor = ThreadPoolExecutor(max_workers=len(batch))
         try:
             futures = {
-                executor.submit(_try_gemini_model, api_key, m, payload_bytes, fallback_bytes): m
+                executor.submit(_try_gemini_model, api_key, m, payload_bytes, fallback_bytes, timeout_sec): m
                 for m in batch
             }
             pending = set(futures.keys())
             while pending:
-                done, pending = wait(pending, return_when=FIRST_COMPLETED, timeout=8)
+                done, pending = wait(pending, return_when=FIRST_COMPLETED, timeout=timeout_sec + 1)
                 if not done:
                     break
                 for fut in done:
@@ -633,6 +603,222 @@ def call_gemini_api(api_key: str, system_prompt: str, history: list, user_messag
             executor.shutdown(wait=False, cancel_futures=True)
 
     raise RuntimeError(f"Tüm Gemini modelleri şu anda yoğun. Lütfen birkaç saniye sonra tekrar deneyin. ({last_error})")
+
+
+def call_gemini_api(api_key: str, system_prompt: str, history: list, user_message: str) -> str:
+    contents = []
+    if isinstance(history, list):
+        for turn in history[-10:]:
+            if not isinstance(turn, dict):
+                continue
+            role = "model" if turn.get("role") == "model" else "user"
+            text = str(turn.get("text", "")).strip()
+            if text:
+                contents.append({"role": role, "parts": [{"text": text[:1500]}]})
+    contents.append({"role": "user", "parts": [{"text": user_message[:1500]}]})
+
+    payload_bytes = json.dumps(
+        {
+            "systemInstruction": {"parts": [{"text": system_prompt}]},
+            "contents": contents,
+            "generationConfig": {"temperature": 0.65, "maxOutputTokens": 650},
+        },
+        ensure_ascii=False,
+    ).encode("utf-8")
+
+    fallback_contents = [
+        {"role": "user", "parts": [{"text": f"[SİSTEM TALİMATI]\n{system_prompt}\n\n[SORU]\n{contents[0]['parts'][0]['text']}"}]},
+        *contents[1:],
+    ]
+    fallback_bytes = json.dumps(
+        {
+            "contents": fallback_contents,
+            "generationConfig": {"temperature": 0.65, "maxOutputTokens": 650},
+        },
+        ensure_ascii=False,
+    ).encode("utf-8")
+
+    return _run_gemini_with_failover(api_key, payload_bytes, fallback_bytes, timeout_sec=7, budget_sec=18)
+
+
+def _extract_translatable_payload(content: dict) -> dict:
+    profile = content.get("profile") or {}
+    hero = content.get("hero") or {}
+    contact = content.get("contact") or {}
+    site = content.get("site") or {}
+
+    return {
+        "profile": {
+            "brandName": profile.get("brandName") or "",
+            "role": profile.get("role") or "",
+            "status": profile.get("status") or "",
+            "bio": profile.get("bio") or "",
+            "interests": list(profile.get("interests") or []),
+            "now": list(profile.get("now") or []),
+        },
+        "hero": {
+            "kicker": hero.get("kicker") or "FİNANS · SERMAYE PİYASALARI · TEKNOLOJİ",
+            "titleLine1": hero.get("titleLine1") or "Piyasaları okuyan,",
+            "titlePrefix": hero.get("titlePrefix") or "teknolojiyle",
+            "titleHighlight": hero.get("titleHighlight") or "değer üreten",
+            "titleLine3": hero.get("titleLine3") or "bir bakış açısı.",
+            "subtitle": hero.get("subtitle") or "Yazılım ve ürün geliştirme çalışmalarımı sermaye piyasaları, yatırım ve hazine perspektifimle birleştiriyor; katıldığım kurumları, zirveleri ve fikirlerimi burada şeffafça paylaşıyorum.",
+            "pillars": list(hero.get("pillars") or ["Sermaye Piyasaları & Yatırım", "Hazine & Bankacılık", "Yazılım & Dijital Ürün"]),
+            "primaryCtaText": hero.get("primaryCtaText") or "Benimle Tanışın",
+            "secondaryCtaText": hero.get("secondaryCtaText") or "Projeler & Zirveler",
+        },
+        "contact": {
+            "titlePrefix": contact.get("titlePrefix") or "Sermaye piyasaları, hazine ve teknolojinin kesişiminde",
+            "titleHighlight": contact.get("titleHighlight") or "değer üretmeye hazırım.",
+            "description": contact.get("description") or "Üniversite eğitimimi yazılım projeleri ve zirvelerle beslerken sermaye piyasaları, yatırım ve hazine süreçlerinde de kendimi aktif olarak geliştiriyorum. Büyük ölçekli bankaların ve kurumsal şirketlerin hazine, yatırım veya teknoloji ekiplerinde sorumluluk alarak öğrenmeye ve somut katkı sunmaya açığım.",
+            "footerNote": contact.get("footerNote") or "Tüm hakları saklıdır.",
+        },
+        "site": {
+            "topCtaText": site.get("topCtaText") or "Tanışalım ↗",
+            "tickerItems": list(site.get("tickerItems") or ["SERMAYE PİYASALARI", "YATIRIM & HAZİNE", "YAZILIM & FİNTECH", "ZİRVELER & KURUMLAR", "AÇIK KAYNAK PROJELER"]),
+            "tabRoles": list(site.get("tabRoles") or ["Sermaye Piyasaları", "Finans", "Hazine & Yatırım", "Teknoloji", "Fintech & Analiz"]),
+            "aboutTitlePrefix": site.get("aboutTitlePrefix") or "Disiplinler Arası",
+            "aboutTitleHighlight": site.get("aboutTitleHighlight") or "Profil",
+            "projectsTitlePrefix": site.get("projectsTitlePrefix") or "Ürettiğim",
+            "projectsTitleHighlight": site.get("projectsTitleHighlight") or "Sistemler",
+            "eventsTitlePrefix": site.get("eventsTitlePrefix") or "Katıldığım",
+            "eventsTitleHighlight": site.get("eventsTitleHighlight") or "Ekosistemler",
+            "ideasTitlePrefix": site.get("ideasTitlePrefix") or "Notlar &",
+            "ideasTitleHighlight": site.get("ideasTitleHighlight") or "Bakış Açıları",
+            "socialTitlePrefix": site.get("socialTitlePrefix") or "Instagram, LinkedIn, GitHub &",
+            "socialTitleHighlight": site.get("socialTitleHighlight") or "YouTube",
+        },
+        "projects": [
+            {"id": p.get("id"), "title": p.get("title") or "", "status": p.get("status") or "", "description": p.get("description") or ""}
+            for p in (content.get("projects") or [])
+        ],
+        "events": [
+            {"id": e.get("id"), "categoryLabel": e.get("categoryLabel") or "", "date": e.get("date") or "", "place": e.get("place") or "", "title": e.get("title") or "", "description": e.get("description") or ""}
+            for e in (content.get("events") or [])
+        ],
+        "ideas": [
+            {"id": i.get("id"), "tag": i.get("tag") or "", "date": i.get("date") or "", "readTime": i.get("readTime") or "", "title": i.get("title") or "", "summary": i.get("summary") or "", "content": list(i.get("content") or [])}
+            for i in (content.get("ideas") or [])
+        ],
+        "socialPosts": [
+            {"id": s.get("id"), "date": s.get("date") or "", "title": s.get("title") or "", "excerpt": s.get("excerpt") or "", "metric": s.get("metric") or ""}
+            for s in (content.get("socialPosts") or [])
+        ],
+        "credentials": [
+            {"id": c.get("id"), "kindLabel": c.get("kindLabel") or "", "date": c.get("date") or "", "title": c.get("title") or "", "org": c.get("org") or "", "detail": c.get("detail") or ""}
+            for c in (content.get("credentials") or [])
+        ],
+        "institutions": list(content.get("institutions") or []),
+    }
+
+
+def _merge_translated_payload(content: dict, tr_en: dict) -> dict:
+    merged = json.loads(json.dumps(content, ensure_ascii=False))
+    for section_key in ("profile", "hero", "contact", "site"):
+        if isinstance(tr_en.get(section_key), dict):
+            merged.setdefault(section_key, {}).update(tr_en[section_key])
+    if isinstance(tr_en.get("institutions"), list) and len(tr_en["institutions"]) == len(merged.get("institutions") or []):
+        merged["institutions"] = tr_en["institutions"]
+
+    for list_key in ("projects", "events", "ideas", "socialPosts", "credentials"):
+        orig_list = merged.get(list_key) or []
+        trans_list = tr_en.get(list_key) or []
+        by_id = {x.get("id"): x for x in trans_list if isinstance(x, dict) and x.get("id")}
+        for idx, item in enumerate(orig_list):
+            match = by_id.get(item.get("id")) or (trans_list[idx] if idx < len(trans_list) and isinstance(trans_list[idx], dict) else None)
+            if match:
+                for k, v in match.items():
+                    if k != "id" and v not in (None, ""):
+                        item[k] = v
+    return merged
+
+
+def get_english_translation() -> tuple[dict | None, bool]:
+    """İngilizce çeviriyi hash önbelleğinden okur; değişmişse Gemini ile çevirip kaydeder."""
+    content = load_content()
+    src_payload = _extract_translatable_payload(content)
+    content_hash = hashlib.sha256(
+        json.dumps(src_payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+
+    if TRANSLATION_EN_FILE.exists():
+        try:
+            with TRANSLATION_EN_FILE.open("r", encoding="utf-8") as f:
+                cached = json.load(f)
+            if cached.get("hash") == content_hash and isinstance(cached.get("data"), dict):
+                return _merge_translated_payload(content, cached["data"]), True
+        except Exception:
+            pass
+
+    api_key, _ = get_gemini_api_key()
+    if not api_key:
+        return None, False
+
+    with TRANSLATE_LOCK:
+        if TRANSLATION_EN_FILE.exists():
+            try:
+                with TRANSLATION_EN_FILE.open("r", encoding="utf-8") as f:
+                    cached = json.load(f)
+                if cached.get("hash") == content_hash and isinstance(cached.get("data"), dict):
+                    return _merge_translated_payload(content, cached["data"]), True
+            except Exception:
+                pass
+
+        sys_instr = (
+            "You are a professional bilingual financial & technology translator. "
+            "Translate all Turkish values in the input JSON into natural, executive-grade English suitable for "
+            "investment banking, capital markets, treasury, and tech recruiting audiences.\n"
+            "Rules:\n"
+            "1. Return ONLY valid raw JSON matching the exact input schema, keys, array lengths, and every 'id'.\n"
+            "2. Keep personal names (e.g. Emir Zencircioğlu) and official proper names (like Borsa İstanbul, Microsoft Türkiye, İş Bankası, DenizBank) recognizable (you may translate generic role/descriptor words or add clean English equivalents like 'Capital Markets Congress').\n"
+            "3. Translate Turkish dates cleanly (e.g. '10 Kasım 2026' -> 'Nov 10, 2026').\n"
+            "4. Keep all punctuation, arrows (↗), and concise executive tone."
+        )
+        src_json = json.dumps(src_payload, ensure_ascii=False)
+        payload_bytes = json.dumps(
+            {
+                "systemInstruction": {"parts": [{"text": sys_instr}]},
+                "contents": [{"role": "user", "parts": [{"text": src_json}]}],
+                "generationConfig": {
+                    "temperature": 0.2,
+                    "maxOutputTokens": 6144,
+                    "responseMimeType": "application/json",
+                },
+            },
+            ensure_ascii=False,
+        ).encode("utf-8")
+        fallback_bytes = json.dumps(
+            {
+                "contents": [{"role": "user", "parts": [{"text": f"{sys_instr}\n\nJSON:\n{src_json}"}]}],
+                "generationConfig": {"temperature": 0.2, "maxOutputTokens": 6144},
+            },
+            ensure_ascii=False,
+        ).encode("utf-8")
+
+        raw_reply = _run_gemini_with_failover(api_key, payload_bytes, fallback_bytes, timeout_sec=16, budget_sec=24)
+        cleaned = raw_reply.strip()
+        if cleaned.startswith("```"):
+            cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", cleaned, flags=re.IGNORECASE | re.DOTALL).strip()
+        start_brace = cleaned.find("{")
+        end_brace = cleaned.rfind("}")
+        if start_brace != -1 and end_brace > start_brace:
+            cleaned = cleaned[start_brace:end_brace + 1]
+        translated_dict = json.loads(cleaned)
+
+        ensure_dirs()
+        tmp = TRANSLATION_EN_FILE.with_suffix(".tmp")
+        with tmp.open("w", encoding="utf-8") as f:
+            json.dump({"hash": content_hash, "data": translated_dict, "updatedAt": int(time.time())}, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, TRANSLATION_EN_FILE)
+        print("[Translate EN] Generated and cached English translation", flush=True)
+        return _merge_translated_payload(content, translated_dict), False
+
+
+def _prewarm_en_translation():
+    try:
+        get_english_translation()
+    except Exception as e:
+        print(f"[Translate prewarm] skipped: {e}", flush=True)
 
 
 TR_MONTHS = [
@@ -733,6 +919,7 @@ def save_content(data: dict):
     with tmp.open("w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     os.replace(tmp, CONTENT_FILE)
+    threading.Thread(target=_prewarm_en_translation, daemon=True).start()
 
 
 def load_feeds() -> list[dict]:
@@ -1005,7 +1192,7 @@ class BlogHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         req_path = urlparse(self.path).path
-        if req_path in ("/api/chat", "/api/chat/status", "/api/content", "/api/contact", "/api/market-pulse"):
+        if req_path in ("/api/chat", "/api/chat/status", "/api/content", "/api/contact", "/api/market-pulse", "/api/translate"):
             self.send_header("Access-Control-Allow-Origin", "*")
         if extra_headers:
             for k, v in extra_headers.items():
@@ -1087,6 +1274,17 @@ class BlogHandler(BaseHTTPRequestHandler):
 
         if path == "/api/market-pulse":
             self._send_json(200, {"items": fetch_market_pulse()})
+            return
+
+        if path == "/api/translate":
+            try:
+                translated, from_cache = get_english_translation()
+                if not translated:
+                    self._send_json(503, {"error": "Çeviri için Gemini API anahtarı gerekli."})
+                    return
+                self._send_json(200, {"ok": True, "cached": from_cache, "data": translated})
+            except Exception as e:
+                self._send_json(502, {"error": f"Çeviri şu anda oluşturulamadı: {e}"})
             return
 
         if path == "/api/admin/messages":
@@ -1968,6 +2166,7 @@ def main():
         return
 
     start_feed_bot_thread()
+    threading.Timer(4.0, _prewarm_en_translation).start()
     server = ThreadingHTTPServer((args.host, args.port), BlogHandler)
     print(f"Blog sunucusu çalışıyor: http://localhost:{args.port}")
     print(f"Admin paneli adresi:     http://localhost:{args.port}/admin")
