@@ -4,6 +4,7 @@
 
 document.addEventListener("DOMContentLoaded", async () => {
   initTheme();
+  initTabTitleRotator();
   initIntroCurtain();
   initHeroCanvas();
 
@@ -51,6 +52,27 @@ function initIntroCurtain() {
   setTimeout(() => {
     curtain.classList.add("done");
   }, 550);
+}
+
+/* ==========================================================================
+   DYNAMIC TAB TITLE ROTATOR
+   ========================================================================== */
+function initTabTitleRotator() {
+  const baseName = "Emir Zencircioğlu";
+  const roles = [
+    "Sermaye Piyasaları",
+    "Finans",
+    "Hazine & Yatırım",
+    "Teknoloji",
+    "Fintech & Analiz",
+  ];
+  let idx = 0;
+  document.title = `${baseName} · ${roles[idx]}`;
+
+  setInterval(() => {
+    idx = (idx + 1) % roles.length;
+    document.title = `${baseName} · ${roles[idx]}`;
+  }, 2400);
 }
 
 /* ==========================================================================

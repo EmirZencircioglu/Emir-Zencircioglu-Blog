@@ -588,9 +588,11 @@ class BlogHandler(BaseHTTPRequestHandler):
             )
             return
 
-        # /admin kısa yolu
+        # /admin kısa yolu ve favicon eşlemesi
         if path in ("/admin", "/admin/"):
             path = "/admin.html"
+        elif path == "/favicon.ico":
+            path = "/assets/favicon.svg"
         elif path == "/":
             path = "/index.html"
 
