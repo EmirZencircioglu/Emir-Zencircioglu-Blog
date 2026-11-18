@@ -191,6 +191,7 @@ def _save_working_gemini_model(model: str):
 
 
 def _get_working_gemini_model() -> str | None:
+    global _CACHED_GEMINI_MODEL
     with _MODEL_STATE_LOCK:
         if _CACHED_GEMINI_MODEL:
             return _CACHED_GEMINI_MODEL
