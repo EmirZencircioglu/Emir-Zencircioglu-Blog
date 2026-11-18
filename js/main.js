@@ -57,7 +57,7 @@ function initIntroCurtain() {
    ========================================================================== */
 function initTheme() {
   const root = document.documentElement;
-  const saved = localStorage.getItem("blog-theme") || "dark";
+  const saved = localStorage.getItem("blog-theme-v2") || "light";
   root.setAttribute("data-theme", saved);
 
   const btn = document.getElementById("themeToggle");
@@ -65,7 +65,7 @@ function initTheme() {
     const current = root.getAttribute("data-theme");
     const next = current === "dark" ? "light" : "dark";
     root.setAttribute("data-theme", next);
-    localStorage.setItem("blog-theme", next);
+    localStorage.setItem("blog-theme-v2", next);
   });
 }
 
@@ -86,12 +86,17 @@ function hydrateProfile(data) {
 
   const mailtoBtn = document.getElementById("mailtoBtn");
   if (mailtoBtn && profile.email) mailtoBtn.href = `mailto:${profile.email}`;
+  const mailtoActionBtn = document.getElementById("mailtoActionBtn");
+  if (mailtoActionBtn && profile.email) mailtoActionBtn.href = `mailto:${profile.email}`;
 
-  // Dossier Card
+  // Hero Strip & Display Name
+  const firstName = (profile.name || "Emir").trim().split(/\s+/)[0];
+  setText("heroDisplayName", firstName);
   setText("heroName", profile.name);
   setText("heroRole", profile.role);
   setText("heroProjCount", (data.projects || []).length);
   setText("heroEventCount", (data.events || []).length);
+  setText("heroIdeaCount", (data.ideas || []).length);
   setText("heroSocialCount", (data.socialPosts || []).length);
 
   const latestSocial = (data.socialPosts || [])[0];
@@ -592,7 +597,7 @@ function initNavIndicator() {
   if (!navLinksWrap || !indicator) return;
 
   const links = Array.from(navLinksWrap.querySelectorAll(".nav-link"));
-  let activeLink = null;
+  let activeLink = links.find((l) => l.classList.contains("active")) || links[0] || null;
 
   function moveIndicatorTo(el) {
     if (!el) {
@@ -602,9 +607,11 @@ function initNavIndicator() {
     const wrapRect = navLinksWrap.getBoundingClientRect();
     const elRect = el.getBoundingClientRect();
     indicator.style.width = `${elRect.width}px`;
-    indicator.style.transform = `translateX(${elRect.left - wrapRect.left}px)`;
+    indicator.style.transform = `translateX(${elRect.left - wrapRect.left - 1 + navLinksWrap.scrollLeft}px)`;
     indicator.style.opacity = "1";
   }
+
+  requestAnimationFrame(() => moveIndicatorTo(activeLink));
 
   links.forEach((link) => {
     link.addEventListener("mouseenter", () => moveIndicatorTo(link));
@@ -810,18 +817,33 @@ function initMobileMenu() {
 }
 
 function initCopyEmail(email) {
-  const btn = document.getElementById("copyEmailBtn");
+  const emailBtn = document.getElementById("copyEmailBtn");
+  const phoneBtn = document.getElementById("copyPhoneBtn");
   const toast = document.getElementById("toast");
-  if (!btn || !toast) return;
+  if (!toast) return;
 
-  btn.addEventListener("click", async () => {
+  function showCopyToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add("show");
+    setTimeout(() => toast.classList.remove("show"), 2400);
+  }
+
+  emailBtn?.addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(email);
     } catch {
       // Clipboard fallback
     }
-    toast.classList.add("show");
-    setTimeout(() => toast.classList.remove("show"), 2400);
+    showCopyToast("E-posta adresi kopyalandı!");
+  });
+
+  phoneBtn?.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText("0537 775 12 24");
+    } catch {
+      // Clipboard fallback
+    }
+    showCopyToast("Telefon numarası kopyalandı!");
   });
 }
 
