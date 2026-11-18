@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Kişisel Blog & Portfolyo — Projeler, Fikirler, Etkinlikler</title>
+  <title>Emir Zencircioğlu — Kişisel Blog & Portfolyo</title>
   <meta name="description" content="Projelerim, fikirlerim, Instagram, LinkedIn, GitHub, YouTube paylaşımlarım ve katıldığım etkinliklerden kareler." />
 
   <!-- Google Fonts -->
@@ -19,16 +19,21 @@
 
   <!-- Custom Magnetic Cursor (Desktop) -->
   <div class="cursor-dot" id="cursorDot"></div>
-  <div class="cursor-ring" id="cursorRing"></div>
-
-  <!-- Subtle Ambient Background -->
-  <div class="ambient-bg" aria-hidden="true">
-    <div class="ambient-orb orb-1"></div>
-    <div class="ambient-orb orb-2"></div>
-    <div class="ambient-grid"></div>
+  <div class="cursor-ring" id="cursorRing">
+    <span class="cursor-label" id="cursorLabel"></span>
   </div>
 
-  <!-- Navigation -->
+  <!-- Ambient Background + Interactive Spotlight + Tactile Grain -->
+  <div class="ambient-bg" aria-hidden="true">
+    <div class="ambient-orb orb-1" id="orb1"></div>
+    <div class="ambient-orb orb-2" id="orb2"></div>
+    <div class="ambient-orb orb-3" id="orb3"></div>
+    <div class="ambient-grid"></div>
+    <div class="ambient-spotlight"></div>
+    <div class="noise-overlay"></div>
+  </div>
+
+  <!-- Floating Glass Navigation -->
   <header class="navbar" id="navbar">
     <div class="nav-inner">
       <a href="#hero" class="nav-logo magnetic" data-magnetic="0.2">
@@ -36,12 +41,13 @@
         <span class="logo-text" id="navBrandName">seninadın.</span>
       </a>
 
-      <nav class="nav-links" aria-label="Ana Menü">
-        <a href="#about" class="nav-link">Hakkımda</a>
-        <a href="#social" class="nav-link">Sosyal Akış</a>
-        <a href="#projects" class="nav-link">Projeler</a>
-        <a href="#ideas" class="nav-link">Fikirler & Blog</a>
-        <a href="#events" class="nav-link">Etkinlikler</a>
+      <nav class="nav-links" id="navLinks" aria-label="Ana Menü">
+        <span class="nav-indicator" id="navIndicator" aria-hidden="true"></span>
+        <a href="#about" class="nav-link" data-section="about">Hakkımda</a>
+        <a href="#social" class="nav-link" data-section="social">Sosyal Akış</a>
+        <a href="#projects" class="nav-link" data-section="projects">Projeler</a>
+        <a href="#ideas" class="nav-link" data-section="ideas">Fikirler & Blog</a>
+        <a href="#events" class="nav-link" data-section="events">Etkinlikler</a>
       </nav>
 
       <div class="nav-actions">
@@ -78,52 +84,95 @@
   <main>
     <!-- HERO SECTION -->
     <section class="hero" id="hero">
-      <div class="container hero-container">
-        <div class="hero-badge reveal-hero" style="--delay: 0.05s">
-          <span class="pulse-dot"></span>
-          <span id="heroStatus">Yeni projeler, fikirler & zirve notları yayında</span>
+      <div class="container hero-grid">
+        <div class="hero-content">
+          <div class="hero-badge reveal-hero" style="--delay: 0.05s">
+            <span class="pulse-dot"></span>
+            <span id="heroStatus">Yeni projeler, fikirler & zirve notları yayında</span>
+          </div>
+
+          <h1 class="hero-title">
+            <span class="line-mask"><span class="line-inner reveal-hero" style="--delay: 0.14s">Üretiyorum,</span></span>
+            <span class="line-mask"><span class="line-inner reveal-hero" style="--delay: 0.24s">keşfediyorum ve <em class="serif-italic gradient-serif">paylaşıyorum.</em></span></span>
+          </h1>
+
+          <p class="hero-subtitle reveal-hero" style="--delay: 0.36s" id="heroSubtitle">
+            Yazılım projelerim, teknoloji üzerine fikirlerim, Instagram, LinkedIn, GitHub ve YouTube paylaşımlarım ile katıldığım kurum, şirket ve zirvelerden kareler — hepsi tek bir akıcı dijital alanda.
+          </p>
+
+          <div class="hero-cta reveal-hero" style="--delay: 0.46s">
+            <a href="#social" class="btn btn-primary magnetic" data-magnetic="0.2">
+              <span>Akışı Keşfet</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M5 12h14M12 5l7 7-7 7"></path>
+              </svg>
+            </a>
+            <a href="#events" class="btn btn-ghost magnetic" data-magnetic="0.2">
+              <span>Etkinlik Galerisi</span>
+            </a>
+          </div>
+
+          <!-- Quick Platform Pills -->
+          <div class="hero-platforms reveal-hero" style="--delay: 0.56s">
+            <a href="#social" data-jump-platform="instagram" class="platform-pill magnetic" data-magnetic="0.15">
+              <span class="p-dot ig"></span> Instagram
+            </a>
+            <a href="#social" data-jump-platform="linkedin" class="platform-pill magnetic" data-magnetic="0.15">
+              <span class="p-dot li"></span> LinkedIn
+            </a>
+            <a href="#social" data-jump-platform="github" class="platform-pill magnetic" data-magnetic="0.15">
+              <span class="p-dot gh"></span> GitHub
+            </a>
+            <a href="#social" data-jump-platform="youtube" class="platform-pill magnetic" data-magnetic="0.15">
+              <span class="p-dot yt"></span> YouTube
+            </a>
+          </div>
         </div>
 
-        <h1 class="hero-title">
-          <span class="line-mask"><span class="line-inner reveal-hero" style="--delay: 0.12s">Üretiyorum,</span></span>
-          <span class="line-mask"><span class="line-inner reveal-hero" style="--delay: 0.22s">keşfediyorum ve <em class="serif-italic">paylaşıyorum.</em></span></span>
-        </h1>
+        <!-- Interactive 3D Hero Stage Card -->
+        <aside class="hero-stage reveal-hero" style="--delay: 0.38s">
+          <div class="hero-stage-card tilt-card" data-tilt="7">
+            <div class="stage-glow"></div>
+            <div class="stage-top">
+              <div class="stage-identity">
+                <div class="avatar-ring stage-avatar">
+                  <img id="heroAvatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80" alt="Profil" />
+                </div>
+                <div>
+                  <strong id="heroName">Adın Soyadın</strong>
+                  <span class="mono-sub" id="heroRole">Geliştirici · İçerik Üreticisi</span>
+                </div>
+              </div>
+              <span class="stage-live-badge"><span class="pulse-dot green"></span> Aktif</span>
+            </div>
 
-        <p class="hero-subtitle reveal-hero" style="--delay: 0.34s" id="heroSubtitle">
-          Yazılım projelerim, teknoloji üzerine fikirlerim, Instagram, LinkedIn, GitHub ve YouTube paylaşımlarım ile katıldığım kurum, şirket ve zirvelerden kareler — hepsi tek bir sade dijital bahçede.
-        </p>
+            <div class="stage-divider"></div>
 
-        <div class="hero-cta reveal-hero" style="--delay: 0.44s">
-          <a href="#social" class="btn btn-primary magnetic" data-magnetic="0.2">
-            <span>Akışı Keşfet</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M5 12h14M12 5l7 7-7 7"></path>
-            </svg>
-          </a>
-          <a href="#events" class="btn btn-ghost magnetic" data-magnetic="0.2">
-            <span>Etkinlik Galerisi</span>
-          </a>
-        </div>
+            <div class="stage-metrics">
+              <div class="stage-metric-box">
+                <span class="mono-sub">PROJE</span>
+                <strong id="heroProjCount">0</strong>
+              </div>
+              <div class="stage-metric-box">
+                <span class="mono-sub">PAYLAŞIM</span>
+                <strong id="heroSocialCount">0</strong>
+              </div>
+              <div class="stage-metric-box">
+                <span class="mono-sub">ETKİNLİK</span>
+                <strong id="heroEventCount">0</strong>
+              </div>
+            </div>
 
-        <!-- Quick Platform Pills -->
-        <div class="hero-platforms reveal-hero" style="--delay: 0.54s">
-          <a href="#social" data-jump-platform="instagram" class="platform-pill">
-            <span class="p-dot ig"></span> Instagram
-          </a>
-          <a href="#social" data-jump-platform="linkedin" class="platform-pill">
-            <span class="p-dot li"></span> LinkedIn
-          </a>
-          <a href="#social" data-jump-platform="github" class="platform-pill">
-            <span class="p-dot gh"></span> GitHub
-          </a>
-          <a href="#social" data-jump-platform="youtube" class="platform-pill">
-            <span class="p-dot yt"></span> YouTube
-          </a>
-        </div>
+            <div class="stage-latest" id="heroLatestWrap">
+              <span class="mono-sub">SON GÜNCELLEME</span>
+              <p id="heroLatestPost">Yeni içerikler & zirve notları yükleniyor...</p>
+            </div>
+          </div>
+        </aside>
       </div>
 
-      <div class="scroll-indicator reveal-hero" style="--delay: 0.7s">
-        <span>Aşağı Kaydır</span>
+      <div class="scroll-indicator reveal-hero" style="--delay: 0.75s">
+        <span>Keşfet</span>
         <div class="scroll-line"></div>
       </div>
     </section>
@@ -137,7 +186,7 @@
         </div>
 
         <div class="about-bento">
-          <div class="bento-card bento-bio reveal-up" style="--delay: 0.05s">
+          <div class="bento-card bento-bio tilt-card reveal-up" data-tilt="3" style="--delay: 0.05s">
             <div class="bio-header">
               <div class="avatar-ring">
                 <img id="profileAvatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80" alt="Profil Fotoğrafı" />
@@ -153,19 +202,19 @@
             <div class="bio-tags" id="profileInterests"></div>
           </div>
 
-          <div class="bento-card bento-stat reveal-up" style="--delay: 0.12s">
+          <div class="bento-card bento-stat tilt-card reveal-up" data-tilt="5" style="--delay: 0.12s">
             <span class="stat-label">Toplam Proje</span>
-            <span class="stat-number" data-count="24">0</span>
+            <span class="stat-number" id="statProjCount" data-count="24">0</span>
             <span class="stat-desc">Açık kaynak & ürün</span>
           </div>
 
-          <div class="bento-card bento-stat reveal-up" style="--delay: 0.18s">
+          <div class="bento-card bento-stat tilt-card reveal-up" data-tilt="5" style="--delay: 0.18s">
             <span class="stat-label">Etkinlik & Zirve</span>
-            <span class="stat-number" data-count="18">0</span>
+            <span class="stat-number" id="statEventCount" data-count="18">0</span>
             <span class="stat-desc">Konuşma & ziyaret</span>
           </div>
 
-          <div class="bento-card bento-now reveal-up" style="--delay: 0.24s">
+          <div class="bento-card bento-now tilt-card reveal-up" data-tilt="3" style="--delay: 0.24s">
             <div class="now-header">
               <span class="pulse-dot green"></span>
               <span class="mono-sub">ŞU AN NE YAPIYORUM?</span>
@@ -255,7 +304,7 @@
       <div class="container">
         <div class="footer-card reveal-up">
           <span class="section-tag">06 / İLETİŞİM</span>
-          <h2 class="footer-title">Birlikte bir şeyler <em class="serif-italic">üretelim mi?</em></h2>
+          <h2 class="footer-title">Birlikte bir şeyler <em class="serif-italic gradient-serif">üretelim mi?</em></h2>
           <p class="footer-desc">
             Yeni bir proje, etkinlik daveti ya da sadece kahve eşliğinde fikir alışverişi için bana her zaman ulaşabilirsin.
           </p>
@@ -274,7 +323,7 @@
         </div>
 
         <div class="footer-bottom">
-          <p>© <span id="currentYear"></span> <span id="footerName">Adın Soyadın</span>. Özenle ve bol animasyonla tasarlandı.</p>
+          <p>© <span id="currentYear"></span> <span id="footerName">Adın Soyadın</span>. Özenle ve akıcı hareketle tasarlandı.</p>
           <a href="#hero" class="back-to-top magnetic" data-magnetic="0.25" aria-label="Yukarı Çık">
             Yukarı ↑
           </a>
@@ -285,7 +334,8 @@
 
   <!-- ARTICLE READER MODAL -->
   <div class="modal-backdrop" id="articleModal" aria-hidden="true">
-    <div class="modal-panel article-panel" role="dialog" aria-modal="true">
+    <div class="modal-panel article-panel" id="articlePanel" role="dialog" aria-modal="true">
+      <div class="modal-reading-bar" id="modalReadingBar"></div>
       <button class="modal-close" data-close-modal aria-label="Kapat">✕</button>
       <div class="article-meta" id="modalArticleMeta"></div>
       <h2 class="article-modal-title" id="modalArticleTitle"></h2>
@@ -306,8 +356,8 @@
         <p id="lightboxDesc"></p>
       </div>
       <div class="lightbox-nav">
-        <button class="lightbox-arrow" id="lightboxPrev" aria-label="Önceki">←</button>
-        <button class="lightbox-arrow" id="lightboxNext" aria-label="Sonraki">→</button>
+        <button class="lightbox-arrow magnetic" data-magnetic="0.2" id="lightboxPrev" aria-label="Önceki">←</button>
+        <button class="lightbox-arrow magnetic" data-magnetic="0.2" id="lightboxNext" aria-label="Sonraki">→</button>
       </div>
     </div>
   </div>
