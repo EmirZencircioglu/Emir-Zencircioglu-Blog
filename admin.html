@@ -106,6 +106,15 @@
           <span class="nav-ico">↗</span>
           <span>Instagram, LinkedIn & Sosyal</span>
         </a>
+        <a href="#credentials" class="sidebar-link" data-view="credentials">
+          <span class="nav-ico">◈</span>
+          <span>Eğitim &amp; Sertifikalar</span>
+        </a>
+        <a href="#inbox" class="sidebar-link" data-view="inbox">
+          <span class="nav-ico">✉</span>
+          <span>Gelen Mesajlar &amp; AI Analizi</span>
+          <span class="tag-chip hidden" id="sidebarUnreadBadge" style="margin-left:auto;">0</span>
+        </a>
         <div class="sidebar-divider">AYARLAR & OTOMASYON</div>
         <a href="#hero" class="sidebar-link" data-view="hero">
           <span class="nav-ico">✦</span>
@@ -159,6 +168,16 @@
             <span class="stat-card-label">Sosyal Medya (IG / LI / GH / YT)</span>
             <strong class="stat-card-num" id="countSocial">0</strong>
             <span class="stat-card-cta">+ Yeni gönderi ekle →</span>
+          </a>
+          <a href="#credentials" class="stat-card-link" data-view="credentials">
+            <span class="stat-card-label">Eğitim, Sertifika &amp; Yetkinlik</span>
+            <strong class="stat-card-num" id="countCredentials">0</strong>
+            <span class="stat-card-cta">+ Eğitim veya sertifika ekle →</span>
+          </a>
+          <a href="#inbox" class="stat-card-link" data-view="inbox">
+            <span class="stat-card-label">Gelen Mesajlar (Okunmamış)</span>
+            <strong class="stat-card-num" id="countUnreadMessages">0</strong>
+            <span class="stat-card-cta">Mesajları ve AI sorularını incele →</span>
           </a>
           <a href="#hero" class="stat-card-link" data-view="hero">
             <span class="stat-card-label">Giriş (Hero), Portre & Başlıklar</span>
@@ -730,6 +749,11 @@
               </label>
             </div>
 
+            <label class="field" style="flex-direction: row; align-items: center; gap: 10px;">
+              <input type="checkbox" id="showMarketPulseCheck" checked style="width: auto;" />
+              <span>Giriş bölümünde canlı döviz / Piyasa Nabzı şeridini göster (USD/TRY, EUR/TRY)</span>
+            </label>
+
             <button type="submit" class="btn btn-primary full-btn">Giriş ve Vitrin Ayarlarını Kaydet</button>
           </form>
         </div>
@@ -780,6 +804,19 @@
                 <input type="text" id="profAvatar" placeholder="Yüklenen görsel yolu veya https://..." />
               </div>
               <img id="profPreview" class="upload-preview hidden" alt="Profil Önizleme" />
+            </div>
+
+            <div class="field">
+              <span>Özgeçmiş / CV Dosyası (PDF — Opsiyonel)</span>
+              <div class="upload-box">
+                <input type="file" id="cvFile" accept="application/pdf,.pdf" class="hidden" />
+                <div class="image-btn-row">
+                  <button type="button" class="btn btn-ghost btn-sm" id="cvUploadBtn">+ PDF CV Yükle / Değiştir</button>
+                  <button type="button" class="btn btn-ghost btn-sm remove-img-btn hidden" id="cvRemoveBtn">CV'yi Kaldır</button>
+                  <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm hidden" id="cvPreviewLink">Mevcut CV'yi Gör ↗</a>
+                </div>
+                <input type="text" id="cvUrlInput" placeholder="Yüklenen PDF yolu (/uploads/...pdf) veya https://..." />
+              </div>
             </div>
             <label class="field">
               <span>İlgi Alanları (virgülle ayır)</span>
@@ -853,6 +890,97 @@
 
             <button type="submit" class="btn btn-primary full-btn">Profil, Kurumlar & İletişimi Kaydet</button>
           </form>
+        </div>
+      </section>
+      <!-- 9. EĞİTİM, SERTİFİKA & YETKİNLİKLER SAYFASI -->
+      <section class="admin-view" id="view-credentials">
+        <div class="view-header">
+          <div>
+            <span class="section-tag">EĞİTİM, SERTİFİKA &amp; YETKİNLİKLER</span>
+            <h1>Akademik Geçmiş, Sertifikalar ve Yetkinlik Matrisi</h1>
+            <p class="view-desc">Üniversite bilgini, SPK / finans sertifikalarını veya teknik/finansal yetkinliklerini ekleyip düzenle.</p>
+          </div>
+        </div>
+
+        <div class="admin-grid">
+          <div class="admin-panel-card">
+            <h2 data-heading-for="formCredential" data-default-title="Yeni Kayıt Ekle">Yeni Kayıt Ekle</h2>
+            <form id="formCredential" class="admin-form">
+              <div class="field-row">
+                <label class="field">
+                  <span>Tür</span>
+                  <select id="credKind" required>
+                    <option value="egitim">Eğitim</option>
+                    <option value="sertifika">Sertifika</option>
+                    <option value="yetkinlik">Yetkinlik / Araç</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Tarih / Dönem</span>
+                  <input type="text" id="credDate" placeholder="ör. 2023 - Devam / 2026" />
+                </label>
+              </div>
+              <label class="field">
+                <span>Başlık</span>
+                <input type="text" id="credTitle" required placeholder="ör. İktisat / Sermaye Piyasaları Lisansı / Python & SQL" />
+              </label>
+              <label class="field">
+                <span>Kurum / Veren Kuruluş (Opsiyonel)</span>
+                <input type="text" id="credOrg" placeholder="ör. Üniversite / SPL / Borsa İstanbul" />
+              </label>
+              <label class="field">
+                <span>Kısa Detay (Opsiyonel)</span>
+                <textarea id="credDetail" rows="3" placeholder="Öne çıkan dersler, notlar veya kapsam..."></textarea>
+              </label>
+              <div class="form-actions-row">
+                <button type="submit" class="btn btn-primary full-btn" data-submit-for="formCredential" data-default-label="Kaydı Yayınla">Kaydı Yayınla</button>
+                <button type="button" class="btn btn-ghost hidden" data-cancel-edit="formCredential">İptal</button>
+              </div>
+            </form>
+          </div>
+
+          <aside class="admin-panel-card">
+            <div class="list-header">
+              <h2>Yayındaki Kayıtlar</h2>
+              <span class="mono-sub" id="credentialsListCount">0 kayıt</span>
+            </div>
+            <div class="items-list" id="listCredentials"></div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- 10. GELEN MESAJLAR & GEMINI CHATBOT ANALİZİ -->
+      <section class="admin-view" id="view-inbox">
+        <div class="view-header">
+          <div>
+            <span class="section-tag">GELEN MESAJLAR &amp; AI ANALİZİ</span>
+            <h1>Ziyaretçi Mesajları &amp; Chatbot Soru İstatistikleri</h1>
+            <p class="view-desc">Tanışalım formundan gelen görüşme taleplerini ve Gemini AI asistanına sorulan soruları takip et.</p>
+          </div>
+        </div>
+
+        <div class="admin-grid">
+          <div class="admin-panel-card">
+            <div class="list-header">
+              <h2>Gelen Mesajlar (<span id="inboxUnreadBadge">0 okunmamış</span>)</h2>
+              <button type="button" class="btn btn-ghost btn-sm" id="markAllReadBtn">Tümünü Okundu Yap</button>
+            </div>
+            <div class="items-list" id="inboxMessagesList" style="max-height: 520px;"></div>
+          </div>
+
+          <aside class="admin-panel-card">
+            <div class="list-header">
+              <h2>Gemini AI Soru Analizi</h2>
+              <button type="button" class="btn btn-ghost btn-sm" id="clearAnalyticsBtn">Geçmişi Temizle</button>
+            </div>
+            <p class="mono-sub" style="margin-bottom: 12px;">
+              Toplam Sohbet: <strong id="analyticsTotalChats">0</strong> · Başarılı: <strong id="analyticsSuccessChats">0</strong>
+            </p>
+            <h3 style="font-size: 0.92rem; margin-bottom: 8px;">En Çok Sorulanlar</h3>
+            <div class="items-list" id="topQuestionsList" style="max-height: 180px; margin-bottom: 16px;"></div>
+            <h3 style="font-size: 0.92rem; margin-bottom: 8px;">Son Ziyaretçi Soruları</h3>
+            <div class="items-list" id="recentChatLogsList" style="max-height: 280px;"></div>
+          </aside>
         </div>
       </section>
     </main>

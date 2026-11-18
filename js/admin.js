@@ -2,7 +2,7 @@
  * ADMIN PANELİ İSTEMCİ MANTIĞI (AYRI SAYFA / GÖRÜNÜM YÖNETİMİ)
  */
 
-const VALID_VIEWS = ["overview", "blog", "events", "projects", "social", "automation", "hero", "profile"];
+const VALID_VIEWS = ["overview", "blog", "events", "projects", "social", "credentials", "inbox", "automation", "hero", "profile"];
 let ADMIN_CONTENT = {};
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -14,10 +14,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   initImageUpload("projFile", "projImageUrl", "projPreview", "projAddImgBtn", "projRemoveImgBtn");
   initImageUpload("heroFile", "heroImageUrl", "heroPreview", "heroAddImgBtn", "heroRemoveImgBtn");
   initImageUpload("profFile", "profAvatar", "profPreview", "profAddImgBtn", "profRemoveImgBtn");
+  initCvUpload();
   initAuthForms();
   initPublishForms();
   initCancelEditButtons();
   initAutomationControls();
+  initInboxAndAnalyticsControls();
 
   await checkAuthAndBoot();
 });
@@ -266,8 +268,10 @@ async function loadAdminContent() {
   renderSectionList("listEvents", "eventsListCount", "events", content.events || [], (x) => `${x.categoryLabel} · ${x.place} · ${x.date}`, "etkinlik");
   renderSectionList("listProjects", "projectsListCount", "projects", content.projects || [], (x) => `${x.year} · ${x.status}`, "proje");
   renderSectionList("listSocial", "socialListCount", "socialPosts", content.socialPosts || [], (x) => `${x.platformLabel} · ${x.date}`, "gönderi");
+  renderSectionList("listCredentials", "credentialsListCount", "credentials", content.credentials || [], (x) => `${x.kindLabel || x.kind} · ${x.org || ""}`, "kayıt");
 
   await loadAutomationInfo();
+  await loadInboxAndAnalytics();
 }
 
 async function loadAutomationInfo() {
@@ -447,6 +451,7 @@ function updateOverviewCounts(content) {
   setText("countEvents", (content.events || []).length);
   setText("countProjects", (content.projects || []).length);
   setText("countSocial", (content.socialPosts || []).length);
+  setText("countCredentials", (content.credentials || []).length);
 }
 
 function renderSectionList(containerId, countId, section, items, metaFormatter, unitLabel) {
@@ -539,6 +544,7 @@ function startEditingItem(section, id) {
     events: "formEvent",
     projects: "formProject",
     socialPosts: "formSocial",
+    credentials: "formCredential",
   };
   const formId = sectionFormMap[section];
   const form = document.getElementById(formId);
@@ -584,6 +590,12 @@ function startEditingItem(section, id) {
     setVal("projLive", item.liveUrl || "");
     setVal("projImageUrl", item.image || "");
     syncImagePreview("projImageUrl", "projPreview", "projRemoveImgBtn");
+  } else if (section === "credentials") {
+    setVal("credKind", item.kind || "egitim");
+    setVal("credDate", item.date || "");
+    setVal("credTitle", item.title || "");
+    setVal("credOrg", item.org || "");
+    setVal("credDetail", item.detail || "");
   } else if (section === "socialPosts") {
     setSocialPlatformUI(item.platform || "instagram");
     setVal("socDate", item.date || "");
@@ -682,6 +694,8 @@ function hydrateSiteAndProfileForms(content) {
   setVal("secIdeasHighlight", site.ideasTitleHighlight || "Bakış Açıları");
   setVal("secSocialPrefix", site.socialTitlePrefix || "Instagram, LinkedIn, GitHub &");
   setVal("secSocialHighlight", site.socialTitleHighlight || "YouTube");
+  const pulseCheck = document.getElementById("showMarketPulseCheck");
+  if (pulseCheck) pulseCheck.checked = site.showMarketPulse !== false;
 
   // Profil, Kurumlar & Tanışalım
   setVal("profBrand", profile.brandName || "");
@@ -692,6 +706,8 @@ function hydrateSiteAndProfileForms(content) {
   setVal("profEmail", profile.email || "");
   setVal("profAvatar", profile.avatar || "");
   syncImagePreview("profAvatar", "profPreview", "profRemoveImgBtn");
+  setVal("cvUrlInput", profile.cvUrl || "");
+  syncCvPreview();
   setVal("profInterests", (profile.interests || []).join(", "));
   setVal("profNow", (profile.now || []).join("\n"));
   setVal("profInstitutions", institutions.join(", "));
@@ -806,6 +822,26 @@ function initPublishForms() {
     await publishItem("projects", item, e.target, "projPreview", "projRemoveImgBtn");
   });
 
+  // Eğitim, Sertifika & Yetkinlikler
+  const credLabels = {
+    egitim: "Eğitim",
+    sertifika: "Sertifika",
+    yetkinlik: "Yetkinlik",
+  };
+  document.getElementById("formCredential")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const kind = val("credKind") || "egitim";
+    const item = {
+      kind,
+      kindLabel: credLabels[kind] || kind,
+      date: val("credDate"),
+      title: val("credTitle"),
+      org: val("credOrg"),
+      detail: val("credDetail"),
+    };
+    await publishItem("credentials", item, e.target);
+  });
+
   // Giriş (Hero) & Vitrin Ayarları
   document.getElementById("formHero")?.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -844,6 +880,7 @@ function initPublishForms() {
       ideasTitleHighlight: val("secIdeasHighlight"),
       socialTitlePrefix: val("secSocialPrefix"),
       socialTitleHighlight: val("secSocialHighlight"),
+      showMarketPulse: document.getElementById("showMarketPulseCheck")?.checked !== false,
     };
 
     const res = await fetch("/api/admin/site", {
@@ -876,6 +913,7 @@ function initPublishForms() {
       bio: val("profBio"),
       email: val("profEmail"),
       avatar: val("profAvatar"),
+      cvUrl: val("cvUrlInput") || null,
       interests: val("profInterests")
         .split(",")
         .map((s) => s.trim())
@@ -974,4 +1012,225 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+/* ==========================================================================
+   PDF CV YÜKLEME & ÖNİZLEME
+   ========================================================================== */
+function syncCvPreview() {
+  const cvUrl = val("cvUrlInput");
+  const removeBtn = document.getElementById("cvRemoveBtn");
+  const previewLink = document.getElementById("cvPreviewLink");
+  if (removeBtn) removeBtn.classList.toggle("hidden", !cvUrl);
+  if (previewLink) {
+    if (cvUrl) {
+      previewLink.href = cvUrl;
+      previewLink.classList.remove("hidden");
+    } else {
+      previewLink.removeAttribute("href");
+      previewLink.classList.add("hidden");
+    }
+  }
+}
+
+function initCvUpload() {
+  const fileInput = document.getElementById("cvFile");
+  const urlInput = document.getElementById("cvUrlInput");
+  const uploadBtn = document.getElementById("cvUploadBtn");
+  const removeBtn = document.getElementById("cvRemoveBtn");
+  if (!fileInput || !urlInput) return;
+
+  uploadBtn?.addEventListener("click", () => fileInput.click());
+  removeBtn?.addEventListener("click", () => {
+    urlInput.value = "";
+    fileInput.value = "";
+    syncCvPreview();
+    showToast("CV bağlantısı temizlendi (kaydetmeyi unutma).");
+  });
+  urlInput.addEventListener("input", syncCvPreview);
+
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      showToast("Lütfen geçerli bir PDF dosyası seç.", true);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const res = await fetch("/api/admin/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename: file.name, dataUrl: reader.result }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showToast(data.error || "PDF yüklenemedi.", true);
+          return;
+        }
+        urlInput.value = data.url;
+        syncCvPreview();
+        showToast("PDF CV sunucuya yüklendi! Kaydet butonuna basarak yayınla.");
+      } catch {
+        showToast("CV yüklenirken hata oluştu.", true);
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/* ==========================================================================
+   GELEN MESAJLAR & GEMINI CHATBOT SORU ANALİZİ
+   ========================================================================== */
+async function loadInboxAndAnalytics() {
+  try {
+    const [msgRes, anaRes] = await Promise.all([
+      fetch("/api/admin/messages", { cache: "no-store" }),
+      fetch("/api/admin/analytics", { cache: "no-store" }),
+    ]);
+
+    if (msgRes.ok) {
+      const msgData = await msgRes.json();
+      const unread = msgData.unreadCount || 0;
+      setText("countUnreadMessages", unread);
+      setText("inboxUnreadBadge", `${unread} okunmamış`);
+      const sideBadge = document.getElementById("sidebarUnreadBadge");
+      if (sideBadge) {
+        sideBadge.textContent = String(unread);
+        sideBadge.classList.toggle("hidden", unread === 0);
+      }
+      renderInboxMessages(msgData.messages || []);
+    }
+
+    if (anaRes.ok) {
+      const ana = await anaRes.json();
+      setText("analyticsTotalChats", ana.totalChats || 0);
+      setText("analyticsSuccessChats", ana.successChats || 0);
+      renderAnalyticsLists(ana.topQuestions || [], ana.recentLogs || []);
+    }
+  } catch {
+    // Sessiz geç
+  }
+}
+
+function renderInboxMessages(messages) {
+  const wrap = document.getElementById("inboxMessagesList");
+  if (!wrap) return;
+  if (!messages.length) {
+    wrap.innerHTML = `<p class="mono-sub">Henüz ziyaretçi mesajı yok.</p>`;
+    return;
+  }
+
+  wrap.innerHTML = messages
+    .map(
+      (m) => `
+      <div class="admin-item-row" style="align-items:flex-start; ${m.read ? "opacity:0.78;" : "border-color: var(--brand);"}">
+        <div class="admin-item-info">
+          <div class="admin-item-title">
+            ${!m.read ? `<span class="tag-chip" style="margin-right:6px;">YENİ</span>` : ""}
+            ${escapeHtml(m.name)} ${m.organization ? `· <span style="color:var(--emerald);">${escapeHtml(m.organization)}</span>` : ""}
+          </div>
+          <div class="admin-item-meta">${escapeHtml(m.topic || "Genel")} · ${escapeHtml(m.contactInfo || "")} · ${escapeHtml(m.createdAt || "")}</div>
+          <p style="margin-top:6px; font-size:0.86rem; line-height:1.5; white-space:pre-wrap;">${escapeHtml(m.message)}</p>
+        </div>
+        <div class="item-actions">
+          <button type="button" class="edit-btn" data-toggle-read="${escapeHtml(m.id)}" data-next-read="${m.read ? "0" : "1"}">${m.read ? "Okunmadı" : "Okundu"}</button>
+          <button type="button" class="delete-btn" data-del-msg="${escapeHtml(m.id)}">Sil</button>
+        </div>
+      </div>
+    `
+    )
+    .join("");
+
+  wrap.querySelectorAll("[data-toggle-read]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const res = await fetch("/api/admin/messages", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: btn.dataset.toggleRead, read: btn.dataset.nextRead === "1" }),
+      });
+      if (res.ok) await loadInboxAndAnalytics();
+    });
+  });
+
+  wrap.querySelectorAll("[data-del-msg]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Bu mesajı kalıcı olarak silmek istediğine emin misin?")) return;
+      const res = await fetch("/api/admin/messages", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: btn.dataset.delMsg }),
+      });
+      if (res.ok) {
+        showToast("Mesaj silindi.");
+        await loadInboxAndAnalytics();
+      }
+    });
+  });
+}
+
+function renderAnalyticsLists(topQuestions, recentLogs) {
+  const topWrap = document.getElementById("topQuestionsList");
+  if (topWrap) {
+    if (!topQuestions.length) {
+      topWrap.innerHTML = `<p class="mono-sub">Henüz soru kaydı yok.</p>`;
+    } else {
+      topWrap.innerHTML = topQuestions
+        .map(
+          (q) => `
+          <div class="admin-item-row">
+            <div class="admin-item-info">
+              <div class="admin-item-title">${escapeHtml(q.question)}</div>
+            </div>
+            <span class="tag-chip">${q.count}×</span>
+          </div>
+        `
+        )
+        .join("");
+    }
+  }
+
+  const recentWrap = document.getElementById("recentChatLogsList");
+  if (recentWrap) {
+    if (!recentLogs.length) {
+      recentWrap.innerHTML = `<p class="mono-sub">Henüz sohbet kaydı yok.</p>`;
+    } else {
+      recentWrap.innerHTML = recentLogs
+        .map(
+          (r) => `
+          <div class="admin-item-row">
+            <div class="admin-item-info">
+              <div class="admin-item-title">${escapeHtml(r.question)}</div>
+              <div class="admin-item-meta">${escapeHtml(r.createdAt || "")} · ${escapeHtml(r.model || "-")} · ${r.ok ? "Yanıtlandı" : "Hata"}</div>
+            </div>
+          </div>
+        `
+        )
+        .join("");
+    }
+  }
+}
+
+function initInboxAndAnalyticsControls() {
+  document.getElementById("markAllReadBtn")?.addEventListener("click", async () => {
+    const res = await fetch("/api/admin/messages", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ markAllRead: true }),
+    });
+    if (res.ok) {
+      showToast("Tüm mesajlar okundu olarak işaretlendi.");
+      await loadInboxAndAnalytics();
+    }
+  });
+
+  document.getElementById("clearAnalyticsBtn")?.addEventListener("click", async () => {
+    if (!confirm("Chatbot soru analiz geçmişini temizlemek istediğine emin misin?")) return;
+    const res = await fetch("/api/admin/analytics", { method: "DELETE" });
+    if (res.ok) {
+      showToast("Sohbet analizi temizlendi.");
+      await loadInboxAndAnalytics();
+    }
+  });
 }

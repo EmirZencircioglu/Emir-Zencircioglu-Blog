@@ -51,15 +51,20 @@ else:
 CONTENT_FILE = DATA_DIR / "content.json"
 SECRET_FILE = DATA_DIR / "admin_secret.json"
 FEEDS_FILE = DATA_DIR / "feeds.json"
+MESSAGES_FILE = DATA_DIR / "messages.json"
+CHAT_LOGS_FILE = DATA_DIR / "chat_logs.json"
 
 CONTENT_LOCK = threading.Lock()
+MESSAGES_LOCK = threading.Lock()
+CHAT_LOGS_LOCK = threading.Lock()
 BOT_INTERVAL_SECONDS = 300  # 5 dakikada bir otomatik kontrol
 BOT_LAST_RUN = {"time": None, "added": 0, "error": None}
 
 SESSION_COOKIE_NAME = "blog_admin_session"
 SESSION_TTL_SECONDS = 60 * 60 * 24 * 7  # 7 gün
-MAX_UPLOAD_BYTES = 8 * 1024 * 1024  # 8 MB
+MAX_UPLOAD_BYTES = 12 * 1024 * 1024  # 12 MB
 ALLOWED_IMAGE_EXTS = {"png", "jpg", "jpeg", "webp", "gif"}
+ALLOWED_UPLOAD_EXTS = ALLOWED_IMAGE_EXTS | {"pdf"}
 
 # Basit IP bazlı brute-force koruması: { ip: [timestamp, ...] }
 FAILED_LOGINS = {}
@@ -235,6 +240,7 @@ def _build_portfolio_system_prompt(content: dict) -> str:
     events = content.get("events") or []
     ideas = content.get("ideas") or []
     social = content.get("socialPosts") or []
+    credentials = content.get("credentials") or []
     institutions = content.get("institutions") or []
     phone_disp = str(contact.get("phoneDisplay") or "0537 775 12 24").strip()
     contact_desc = str(
@@ -245,6 +251,10 @@ def _build_portfolio_system_prompt(content: dict) -> str:
     proj_lines = [
         f"- {p.get('title')} ({p.get('year', '')}, {p.get('status', '')}): {p.get('description', '')} | Teknolojiler: {', '.join(p.get('stack') or [])}"
         for p in projects[:15]
+    ]
+    cred_lines = [
+        f"- [{c.get('kindLabel', c.get('kind', ''))}] {c.get('title')} — {c.get('org', '')} ({c.get('date', '')}): {c.get('detail', '')}"
+        for c in credentials[:20]
     ]
     event_lines = [
         f"- [{e.get('categoryLabel', '')}] {e.get('title')} ({e.get('place', '')}, {e.get('date', '')}): {e.get('description', '')}"
@@ -258,6 +268,7 @@ def _build_portfolio_system_prompt(content: dict) -> str:
         f"- [{s.get('platformLabel', '')}] {s.get('title')} ({s.get('date', '')}): {s.get('excerpt', '')}"
         for s in social[:10]
     ]
+    cv_note = "Siteden PDF özgeçmiş (CV) indirilebilir." if profile.get("cvUrl") else ""
 
     return (
         "Sen Emir Zencircioğlu'nun kişisel blog ve portfolyo sitesindeki resmi yapay zeka asistanısın ('Emir AI').\n"
@@ -267,7 +278,7 @@ def _build_portfolio_system_prompt(content: dict) -> str:
         "1. Ziyaretçi hangi dilde yazarsa o dilde yanıt ver (varsayılan Türkçe).\n"
         "2. Sadece aşağıdaki güncel site verilerine ve bağlama dayan; bilmediğin bilgileri uydurma.\n"
         "3. Kısa, okunabilir ve doğrudan sorulara odaklanan yanıtlar ver.\n"
-        f"4. İletişim veya staj/iş birliği sorulursa telefon ({phone_disp}) ve e-posta bilgilerini paylaş.\n\n"
+        f"4. İletişim veya staj/iş birliği sorulursa telefon ({phone_disp}), e-posta ve sitedeki hızlı iletişim formunu paylaş. {cv_note}\n\n"
         f"=== PROFİL ===\n"
         f"Ad Soyad: {profile.get('name', 'Emir Zencircioğlu')}\n"
         f"Rol: {profile.get('role', '')}\n"
@@ -280,11 +291,114 @@ def _build_portfolio_system_prompt(content: dict) -> str:
         f"E-posta: {profile.get('email', 'ezencircioglu0024@gmail.com')}\n"
         f"Telefon: {phone_disp}\n"
         f"Katıldığı Kurumlar / Ekosistemler: {', '.join(institutions)}\n\n"
+        f"=== EĞİTİM, SERTİFİKA & YETKİNLİKLER ===\n" + ("\n".join(cred_lines) or "Henüz eğitim/sertifika eklenmedi.") + "\n\n"
         f"=== PROJELER ===\n" + ("\n".join(proj_lines) or "Henüz proje listelenmedi.") + "\n\n"
         f"=== ETKİNLİK, BANKA VE ZİRVEMELER ===\n" + ("\n".join(event_lines) or "Henüz etkinlik listelenmedi.") + "\n\n"
         f"=== FİKİRLER VE YAZILAR ===\n" + ("\n".join(idea_lines) or "Henüz yazı listelenmedi.") + "\n\n"
         f"=== SON SOSYAL PAYLAŞIMLAR ===\n" + ("\n".join(social_lines) or "Henüz paylaşım listelenmedi.")
     )
+
+
+CONTACT_RATE_LIMIT: dict[str, list[float]] = {}
+_MARKET_PULSE_CACHE: dict[str, object] = {"ts": 0.0, "items": []}
+
+
+def load_messages() -> list:
+    ensure_dirs()
+    with MESSAGES_LOCK:
+        if not MESSAGES_FILE.exists():
+            return []
+        try:
+            with MESSAGES_FILE.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+            return data if isinstance(data, list) else []
+        except Exception:
+            return []
+
+
+def save_messages(items: list):
+    ensure_dirs()
+    with MESSAGES_LOCK:
+        tmp = MESSAGES_FILE.with_suffix(".tmp")
+        with tmp.open("w", encoding="utf-8") as f:
+            json.dump(items, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, MESSAGES_FILE)
+
+
+def load_chat_logs() -> list:
+    ensure_dirs()
+    with CHAT_LOGS_LOCK:
+        if not CHAT_LOGS_FILE.exists():
+            return []
+        try:
+            with CHAT_LOGS_FILE.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+            return data if isinstance(data, list) else []
+        except Exception:
+            return []
+
+
+def append_chat_log(question: str, model_used: str | None, ok: bool):
+    ensure_dirs()
+    entry = {
+        "id": f"cl-{uuid.uuid4().hex[:8]}",
+        "question": str(question or "").strip()[:320],
+        "model": model_used or "",
+        "ok": bool(ok),
+        "createdAt": datetime.now(TR_TZ).strftime("%d.%m.%Y %H:%M"),
+    }
+    with CHAT_LOGS_LOCK:
+        logs = []
+        if CHAT_LOGS_FILE.exists():
+            try:
+                with CHAT_LOGS_FILE.open("r", encoding="utf-8") as f:
+                    loaded = json.load(f)
+                if isinstance(loaded, list):
+                    logs = loaded
+            except Exception:
+                logs = []
+        logs.insert(0, entry)
+        logs = logs[:250]
+        tmp = CHAT_LOGS_FILE.with_suffix(".tmp")
+        with tmp.open("w", encoding="utf-8") as f:
+            json.dump(logs, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, CHAT_LOGS_FILE)
+
+
+def fetch_market_pulse() -> list[dict]:
+    """Canlı döviz ve piyasa referans değerlerini 5 dk önbellekle çeker."""
+    now_ts = time.time()
+    cached = _MARKET_PULSE_CACHE.get("items") or []
+    if cached and now_ts - float(_MARKET_PULSE_CACHE.get("ts") or 0.0) < 300:
+        return list(cached)
+
+    items: list[dict] = []
+    try:
+        req = urllib.request.Request(
+            "https://open.er-api.com/v6/latest/USD",
+            headers={"User-Agent": "EmirPortfolioPulse/1.0"},
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            fx = json.loads(resp.read().decode("utf-8"))
+        rates = fx.get("rates") or {}
+        usd_try = float(rates.get("TRY") or 0)
+        eur_per_usd = float(rates.get("EUR") or 0)
+        gbp_per_usd = float(rates.get("GBP") or 0)
+        if usd_try > 0:
+            items.append({"symbol": "USD/TRY", "value": f"{usd_try:.2f}"})
+            if eur_per_usd > 0:
+                items.append({"symbol": "EUR/TRY", "value": f"{usd_try / eur_per_usd:.2f}"})
+            if gbp_per_usd > 0:
+                items.append({"symbol": "GBP/TRY", "value": f"{usd_try / gbp_per_usd:.2f}"})
+            if eur_per_usd > 0:
+                items.append({"symbol": "EUR/USD", "value": f"{1.0 / eur_per_usd:.4f}"})
+    except Exception:
+        pass
+
+    if items:
+        _MARKET_PULSE_CACHE["ts"] = now_ts
+        _MARKET_PULSE_CACHE["items"] = items
+    return items
 
 
 def _model_sort_key(name: str) -> tuple:
@@ -890,8 +1004,7 @@ class BlogHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
-        req_path = urlparse(self.path).path
-        if req_path in ("/api/chat", "/api/chat/status", "/api/content"):
+        if req_path in ("/api/chat", "/api/chat/status", "/api/content", "/api/contact", "/api/market-pulse"):
             self.send_header("Access-Control-Allow-Origin", "*")
         if extra_headers:
             for k, v in extra_headers.items():
@@ -969,6 +1082,71 @@ class BlogHandler(BaseHTTPRequestHandler):
         if path == "/api/chat/status":
             gemini_key, _ = get_gemini_api_key()
             self._send_json(200, {"configured": bool(gemini_key)})
+            return
+
+        if path == "/api/market-pulse":
+            self._send_json(200, {"items": fetch_market_pulse()})
+            return
+
+        if path == "/api/admin/messages":
+            user = self._get_authenticated_user()
+            if not user:
+                self._send_json(401, {"error": "Yetkisiz erişim."})
+                return
+            msgs = load_messages()
+            unread = sum(1 for m in msgs if not m.get("read"))
+            self._send_json(200, {"messages": msgs, "unreadCount": unread})
+            return
+
+        if path == "/api/admin/analytics":
+            user = self._get_authenticated_user()
+            if not user:
+                self._send_json(401, {"error": "Yetkisiz erişim."})
+                return
+            logs = load_chat_logs()
+            q_counts: dict[str, int] = {}
+            for row in logs:
+                q_text = str(row.get("question") or "").strip()
+                if q_text:
+                    q_counts[q_text] = q_counts.get(q_text, 0) + 1
+            top_questions = [
+                {"question": q, "count": cnt}
+                for q, cnt in sorted(q_counts.items(), key=lambda x: -x[1])[:8]
+            ]
+            self._send_json(
+                200,
+                {
+                    "totalChats": len(logs),
+                    "successChats": sum(1 for r in logs if r.get("ok")),
+                    "recentLogs": logs[:60],
+                    "topQuestions": top_questions,
+                },
+            )
+            return
+
+        if path == "/robots.txt":
+            base_url = self._get_base_url()
+            txt = f"User-agent: *\nAllow: /\nDisallow: /admin\nSitemap: {base_url}/sitemap.xml\n".encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(txt)))
+            self.end_headers()
+            self.wfile.write(txt)
+            return
+
+        if path == "/sitemap.xml":
+            base_url = self._get_base_url()
+            xml_body = (
+                '<?xml version="1.0" encoding="UTF-8"?>\n'
+                '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+                f'  <url><loc>{html.escape(base_url)}/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>\n'
+                '</urlset>\n'
+            ).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/xml; charset=utf-8")
+            self.send_header("Content-Length", str(len(xml_body)))
+            self.end_headers()
+            self.wfile.write(xml_body)
             return
 
         if path == "/api/admin/automation":
@@ -1090,6 +1268,46 @@ class BlogHandler(BaseHTTPRequestHandler):
             self._handle_social_webhook()
             return
 
+        # Herkese Açık Hızlı İletişim / Görüşme Talebi Formu
+        if path == "/api/contact":
+            client_ip = (self.headers.get("X-Forwarded-For", "").split(",")[0].strip() or self.client_address[0])
+            now_ts = time.time()
+            recent = [t for t in CONTACT_RATE_LIMIT.get(client_ip, []) if now_ts - t < 60]
+            if len(recent) >= 8:
+                self._send_json(429, {"error": "Çok sık mesaj gönderildi. Lütfen 1 dakika bekleyin."})
+                return
+            recent.append(now_ts)
+            CONTACT_RATE_LIMIT[client_ip] = recent
+
+            body = self._read_json_body(16 * 1024)
+            if not body:
+                self._send_json(400, {"error": "Geçersiz form verisi."})
+                return
+            name = str(body.get("name", "")).strip()
+            organization = str(body.get("organization", "")).strip()
+            contact_info = str(body.get("contactInfo", "")).strip()
+            topic = str(body.get("topic", "")).strip()
+            message = str(body.get("message", "")).strip()
+            if len(name) < 2 or len(message) < 5:
+                self._send_json(400, {"error": "Lütfen adınızı ve en az 5 karakterlik bir mesaj yazın."})
+                return
+
+            new_msg = {
+                "id": f"msg-{uuid.uuid4().hex[:8]}",
+                "name": name[:120],
+                "organization": organization[:140],
+                "contactInfo": contact_info[:140],
+                "topic": topic[:100] or "Genel / Tanışma",
+                "message": message[:2000],
+                "createdAt": datetime.now(TR_TZ).strftime("%d.%m.%Y %H:%M"),
+                "read": False,
+            }
+            msgs = load_messages()
+            msgs.insert(0, new_msg)
+            save_messages(msgs[:300])
+            self._send_json(201, {"ok": True, "id": new_msg["id"]})
+            return
+
         # Herkese Açık Gemini Chatbot Uç Noktası
         if path == "/api/chat":
             client_ip = (self.headers.get("X-Forwarded-For", "").split(",")[0].strip() or self.client_address[0])
@@ -1125,10 +1343,13 @@ class BlogHandler(BaseHTTPRequestHandler):
             try:
                 system_prompt = _build_portfolio_system_prompt(load_content())
                 reply = call_gemini_api(api_key, system_prompt, history, message)
+                append_chat_log(message, _get_working_gemini_model(), True)
                 self._send_json(200, {"ok": True, "reply": reply})
             except RuntimeError as e:
+                append_chat_log(message, None, False)
                 self._send_json(502, {"error": str(e)})
             except Exception as e:
+                append_chat_log(message, None, False)
                 self._send_json(500, {"error": f"Sohbet yanıtı alınamadı: {e}"})
             return
 
@@ -1276,30 +1497,32 @@ class BlogHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/api/admin/upload":
-            body = self._read_json_body(MAX_UPLOAD_BYTES + 2 * 1024 * 1024)
+            body = self._read_json_body(MAX_UPLOAD_BYTES + 4 * 1024 * 1024)
             if not body:
-                self._send_json(400, {"error": "Görsel verisi okunamadı veya boyut çok büyük."})
+                self._send_json(400, {"error": "Dosya verisi okunamadı veya boyut çok büyük."})
                 return
             filename = str(body.get("filename", "image.png"))
             data_url = str(body.get("dataUrl", ""))
-            if "," not in data_url or not data_url.startswith("data:image/"):
-                self._send_json(400, {"error": "Geçersiz görsel formatı."})
+            is_img = data_url.startswith("data:image/")
+            is_pdf = data_url.startswith("data:application/pdf")
+            if "," not in data_url or not (is_img or is_pdf):
+                self._send_json(400, {"error": "Yalnızca görsel veya PDF dosyası yüklenebilir."})
                 return
 
-            ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "png"
-            if ext not in ALLOWED_IMAGE_EXTS:
-                self._send_json(400, {"error": "Yalnızca PNG, JPG, WEBP veya GIF yüklenebilir."})
+            ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ("pdf" if is_pdf else "png")
+            if ext not in ALLOWED_UPLOAD_EXTS or (is_pdf and ext != "pdf"):
+                self._send_json(400, {"error": "Yalnızca PNG, JPG, WEBP, GIF veya PDF yüklenebilir."})
                 return
 
             try:
                 b64_part = data_url.split(",", 1)[1]
                 raw_bytes = base64.b64decode(b64_part, validate=True)
             except Exception:
-                self._send_json(400, {"error": "Görsel çözümlenemedi."})
+                self._send_json(400, {"error": "Dosya çözümlenemedi."})
                 return
 
             if len(raw_bytes) > MAX_UPLOAD_BYTES:
-                self._send_json(400, {"error": "Görsel boyutu 8 MB sınırını aşamaz."})
+                self._send_json(400, {"error": "Dosya boyutu 12 MB sınırını aşamaz."})
                 return
 
             ensure_dirs()
@@ -1327,7 +1550,7 @@ class BlogHandler(BaseHTTPRequestHandler):
                 return
             section = body.get("section")
             item = body.get("item")
-            if section not in {"socialPosts", "projects", "ideas", "events"} or not isinstance(item, dict):
+            if section not in {"socialPosts", "projects", "ideas", "events", "credentials"} or not isinstance(item, dict):
                 self._send_json(400, {"error": "Geçersiz bölüm veya öğe."})
                 return
 
@@ -1507,6 +1730,22 @@ class BlogHandler(BaseHTTPRequestHandler):
             self._send_json(200, {"ok": True})
             return
 
+        if path == "/api/admin/messages":
+            body = self._read_json_body(4096) or {}
+            msg_id = body.get("id")
+            msgs = load_messages()
+            if body.get("markAllRead"):
+                for m in msgs:
+                    m["read"] = True
+            elif msg_id:
+                for m in msgs:
+                    if m.get("id") == msg_id:
+                        m["read"] = bool(body.get("read", True))
+                        break
+            save_messages(msgs)
+            self._send_json(200, {"ok": True})
+            return
+
         if path == "/api/admin/item":
             body = self._read_json_body(1024 * 1024)
             if not body:
@@ -1515,7 +1754,7 @@ class BlogHandler(BaseHTTPRequestHandler):
             section = body.get("section")
             item_id = body.get("id")
             item = body.get("item")
-            if section not in {"socialPosts", "projects", "ideas", "events"} or not item_id or not isinstance(item, dict):
+            if section not in {"socialPosts", "projects", "ideas", "events", "credentials"} or not item_id or not isinstance(item, dict):
                 self._send_json(400, {"error": "Geçersiz bölüm, ID veya öğe."})
                 return
 
@@ -1558,6 +1797,23 @@ class BlogHandler(BaseHTTPRequestHandler):
             self._send_json(200, {"ok": True})
             return
 
+        if path == "/api/admin/messages":
+            body = self._read_json_body(4096) or {}
+            msg_id = body.get("id")
+            msgs = [m for m in load_messages() if m.get("id") != msg_id]
+            save_messages(msgs)
+            self._send_json(200, {"ok": True})
+            return
+
+        if path == "/api/admin/analytics":
+            with CHAT_LOGS_LOCK:
+                tmp = CHAT_LOGS_FILE.with_suffix(".tmp")
+                with tmp.open("w", encoding="utf-8") as f:
+                    json.dump([], f)
+                os.replace(tmp, CHAT_LOGS_FILE)
+            self._send_json(200, {"ok": True})
+            return
+
         if path == "/api/admin/item":
             body = self._read_json_body(16 * 1024)
             if not body:
@@ -1565,7 +1821,7 @@ class BlogHandler(BaseHTTPRequestHandler):
                 return
             section = body.get("section")
             item_id = body.get("id")
-            if section not in {"socialPosts", "projects", "ideas", "events"} or not item_id:
+            if section not in {"socialPosts", "projects", "ideas", "events", "credentials"} or not item_id:
                 self._send_json(400, {"error": "Geçersiz bölüm veya ID."})
                 return
 
@@ -1629,12 +1885,55 @@ class BlogHandler(BaseHTTPRequestHandler):
         with target.open("rb") as f:
             data = f.read()
 
+        # Ana sayfa için dinamik Open Graph (LinkedIn / WhatsApp link önizleme kartı) enjeksiyonu
+        if rel == "index.html":
+            try:
+                content = load_content()
+                profile = content.get("profile") or {}
+                hero = content.get("hero") or {}
+                base_url = self._get_base_url()
+                name = str(profile.get("name") or "Emir Zencircioğlu").strip()
+                role = str(profile.get("role") or "Sermaye Piyasaları, Finans & Yazılım").strip()
+                desc = str(hero.get("subtitle") or profile.get("bio") or "").strip()[:240]
+                raw_img = str(hero.get("portraitImage") or profile.get("avatar") or "").strip()
+                og_img = ""
+                if raw_img.startswith(("http://", "https://")):
+                    og_img = raw_img
+                elif raw_img.startswith("/"):
+                    og_img = f"{base_url}{raw_img}"
+
+                meta_lines = [
+                    f'<meta property="og:type" content="website" />',
+                    f'<meta property="og:url" content="{html.escape(base_url)}/" />',
+                    f'<meta property="og:title" content="{html.escape(name)} — {html.escape(role)}" />',
+                    f'<meta property="og:description" content="{html.escape(desc)}" />',
+                    f'<meta name="twitter:card" content="summary_large_image" />',
+                    f'<meta name="twitter:title" content="{html.escape(name)} — {html.escape(role)}" />',
+                    f'<meta name="twitter:description" content="{html.escape(desc)}" />',
+                ]
+                if og_img:
+                    meta_lines.append(f'<meta property="og:image" content="{html.escape(og_img)}" />')
+                    meta_lines.append(f'<meta name="twitter:image" content="{html.escape(og_img)}" />')
+                html_text = data.decode("utf-8").replace("</head>", "  " + "\n  ".join(meta_lines) + "\n</head>", 1)
+                data = html_text.encode("utf-8")
+            except Exception:
+                pass
+
         self.send_response(200)
         self.send_header("Content-Type", mime)
         self.send_header("Content-Length", str(len(data)))
         self.send_header("X-Content-Type-Options", "nosniff")
+        if target.suffix.lower() == ".pdf" and "download=1" in (urlparse(self.path).query or ""):
+            self.send_header("Content-Disposition", 'attachment; filename="Emir_Zencircioglu_CV.pdf"')
         self.end_headers()
         self.wfile.write(data)
+
+    def _get_base_url(self) -> str:
+        proto = (self.headers.get("X-Forwarded-Proto") or "").split(",")[0].strip() or "https"
+        host = (self.headers.get("Host") or "localhost:8000").strip()
+        if host.startswith("localhost") or host.startswith("127.0.0.1"):
+            proto = "http"
+        return f"{proto}://{host}"
 
 
 def reset_password_cli():

@@ -71,6 +71,7 @@
       </div>
 
       <div class="nav-actions">
+        <button type="button" class="lang-toggle magnetic" id="langToggle" aria-label="Dil Değiştir" data-magnetic="0.18">EN</button>
         <a href="#contact" class="topbar-cta magnetic" id="topbarCta" data-magnetic="0.18">Tanışalım ↗</a>
         <button class="theme-toggle magnetic" id="themeToggle" aria-label="Tema Değiştir" data-magnetic="0.22">
           <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -93,6 +94,10 @@
     </a>
     <a href="#about" class="rail-item" data-section="about">
       <span class="rail-label">Profil</span>
+      <span class="rail-dot"></span>
+    </a>
+    <a href="#credentials" class="rail-item hidden" id="railCredentials" data-section="credentials">
+      <span class="rail-label">Yetkinlik</span>
       <span class="rail-dot"></span>
     </a>
     <a href="#projects" class="rail-item" data-section="projects">
@@ -152,6 +157,15 @@
             <a href="#projects" class="btn btn-ghost magnetic" data-magnetic="0.2">
               <span id="heroCtaSecondaryText">Projeler & Zirveler</span>
             </a>
+            <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-ghost cv-btn hidden magnetic" id="heroCvBtn" data-magnetic="0.2">
+              <span id="heroCvBtnText">CV İndir (PDF) ↓</span>
+            </a>
+          </div>
+
+          <!-- LIVE MARKET PULSE STRIP (FX REFERENCE) -->
+          <div class="market-pulse hidden reveal-hero" id="marketPulseStrip" style="--delay: 0.7s" aria-label="Canlı Piyasa Nabzı">
+            <span class="market-pulse-badge"><span class="pulse-dot green"></span> PİYASA NABZI</span>
+            <div class="market-pulse-items" id="marketPulseItems"></div>
           </div>
         </div>
 
@@ -226,6 +240,27 @@
             </div>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- CREDENTIALS: EDUCATION, CERTIFICATIONS & SKILLS -->
+    <section class="section credentials-section hidden" id="credentials">
+      <div class="container">
+        <div class="section-split-head reveal-up">
+          <div>
+            <span class="section-tag" id="credTag">EĞİTİM, SERTİFİKA & YETKİNLİK</span>
+            <h2 class="section-title"><span id="credTitlePrefix">Akademik &</span> <em class="serif-italic gold-serif" id="credTitleHighlight">Teknik Donanım</em></h2>
+          </div>
+          <div class="filter-bar" id="credFilters">
+            <span class="filter-pill-bg" aria-hidden="true"></span>
+            <button class="filter-btn active" data-cred-filter="all">Tümü</button>
+            <button class="filter-btn" data-cred-filter="egitim">Eğitim</button>
+            <button class="filter-btn" data-cred-filter="sertifika">Sertifika</button>
+            <button class="filter-btn" data-cred-filter="yetkinlik">Yetkinlik</button>
+          </div>
+        </div>
+
+        <div class="credentials-grid" id="credentialsGrid"></div>
       </div>
     </section>
 
@@ -337,6 +372,37 @@
               </div>
             </div>
           </div>
+
+          <!-- CV DOWNLOAD BANNER (WHEN UPLOADED IN ADMIN) -->
+          <div class="contact-cv-bar hidden" id="contactCvWrap">
+            <div>
+              <span class="mono-sub" id="contactCvLabel">ÖZGEÇMİŞ (PDF)</span>
+              <strong id="contactCvTitle">Güncel CV dosyamı tek tıkla inceleyebilir veya indirebilirsiniz.</strong>
+            </div>
+            <div class="contact-box-actions">
+              <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm magnetic" id="contactCvViewBtn" data-magnetic="0.18">Görüntüle ↗</a>
+              <a href="#" class="btn btn-gold btn-sm magnetic" id="contactCvBtn" data-magnetic="0.18">PDF İndir ↓</a>
+            </div>
+          </div>
+
+          <!-- QUICK CONTACT / INTERVIEW REQUEST FORM -->
+          <form class="contact-msg-form" id="contactMessageForm">
+            <div class="contact-msg-head">
+              <span class="mono-sub" id="msgFormTag">HIZLI MESAJ &amp; GÖRÜŞME TALEBİ</span>
+              <strong id="msgFormTitle">Doğrudan not bırakın; mesajınız anında panelime ulaşır.</strong>
+            </div>
+            <div class="contact-msg-grid">
+              <input type="text" id="msgName" required maxlength="120" placeholder="Adınız Soyadınız *" aria-label="Adınız Soyadınız" />
+              <input type="text" id="msgOrg" maxlength="140" placeholder="Kurum / Banka / Şirket" aria-label="Kurum veya Şirket" />
+              <input type="text" id="msgContact" maxlength="140" placeholder="E-posta veya Telefon *" required aria-label="E-posta veya Telefon" />
+              <input type="text" id="msgTopic" maxlength="100" placeholder="Konu (ör. Staj, Hazine Ekibi, İş Birliği)" aria-label="Konu" />
+            </div>
+            <textarea id="msgBody" rows="3" required maxlength="2000" placeholder="Mesajınızı veya görüşme talebinizi yazın... *" aria-label="Mesajınız"></textarea>
+            <div class="contact-msg-foot">
+              <button type="submit" class="btn btn-gold btn-sm magnetic" id="msgSubmitBtn" data-magnetic="0.18">Mesajı Gönder →</button>
+              <span class="mono-sub" id="msgFormStatus"></span>
+            </div>
+          </form>
 
           <div class="footer-socials" id="footerSocials"></div>
         </div>

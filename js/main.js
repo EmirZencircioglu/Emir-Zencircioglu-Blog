@@ -21,6 +21,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   hydrateProfile(data);
   renderMarquee(data.institutions || []);
+  renderCredentials(data.credentials || [], "all");
   renderProjects(data.projects || []);
   renderEvents(data.events || [], "all");
   renderIdeas(data.ideas || []);
@@ -29,6 +30,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   initDossierTabs();
   initHeroTicker(data.profile?.interests || []);
+  initMarketPulse(data.site || {});
   initScrollEffects();
   initNavIndicator();
   initRevealObserver();
@@ -41,7 +43,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   initModals(data);
   initMobileMenu();
   initCopyEmail(data.profile?.email || "", data.contact?.phoneDisplay || "0537 775 12 24");
+  initContactMessageForm();
   initChatbot(data);
+  initLanguageToggle(data);
 });
 
 /* ==========================================================================
@@ -234,6 +238,26 @@ function hydrateProfile(data) {
       if (phoneLink) phoneLink.href = href;
       if (phoneCallBtn) phoneCallBtn.href = href;
     }
+  }
+
+  // PDF CV / Özgeçmiş bağlantıları
+  const cvUrl = (profile.cvUrl || "").trim();
+  const heroCvBtn = document.getElementById("heroCvBtn");
+  const contactCvWrap = document.getElementById("contactCvWrap");
+  const contactCvViewBtn = document.getElementById("contactCvViewBtn");
+  const contactCvBtn = document.getElementById("contactCvBtn");
+  if (cvUrl) {
+    const dlUrl = cvUrl.includes("?") ? `${cvUrl}&download=1` : `${cvUrl}?download=1`;
+    if (heroCvBtn) {
+      heroCvBtn.href = dlUrl;
+      heroCvBtn.classList.remove("hidden");
+    }
+    if (contactCvWrap) contactCvWrap.classList.remove("hidden");
+    if (contactCvViewBtn) contactCvViewBtn.href = cvUrl;
+    if (contactCvBtn) contactCvBtn.href = dlUrl;
+  } else {
+    heroCvBtn?.classList.add("hidden");
+    contactCvWrap?.classList.add("hidden");
   }
 
   const interestsWrap = document.getElementById("profileInterests");
@@ -490,14 +514,26 @@ function moveFilterPill(bar) {
 function initFilters(data) {
   const socialBar = document.getElementById("socialFilters");
   const eventBar = document.getElementById("eventFilters");
+  const credBar = document.getElementById("credFilters");
 
   requestAnimationFrame(() => {
     moveFilterPill(socialBar);
     moveFilterPill(eventBar);
+    moveFilterPill(credBar);
   });
   window.addEventListener("resize", () => {
     moveFilterPill(socialBar);
     moveFilterPill(eventBar);
+    moveFilterPill(credBar);
+  });
+
+  credBar?.addEventListener("click", (e) => {
+    const btn = e.target.closest(".filter-btn");
+    if (!btn) return;
+    credBar.querySelectorAll(".filter-btn").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    moveFilterPill(credBar);
+    renderCredentials(data.credentials || [], btn.dataset.credFilter);
   });
 
   socialBar?.addEventListener("click", (e) => {
@@ -1320,4 +1356,260 @@ function initRoamingFaceOrb(widget, fab, tooltipEl, firstName) {
   }
 
   requestAnimationFrame(tick);
+}
+
+/* ==========================================================================
+   CREDENTIALS (EDUCATION, CERTIFICATIONS & SKILLS)
+   ========================================================================== */
+function renderCredentials(credentials, filter = "all") {
+  const section = document.getElementById("credentials");
+  const grid = document.getElementById("credentialsGrid");
+  const railItem = document.getElementById("railCredentials");
+  if (!section || !grid) return;
+
+  const list = Array.isArray(credentials) ? credentials : [];
+  if (!list.length) {
+    section.classList.add("hidden");
+    railItem?.classList.add("hidden");
+    return;
+  }
+
+  section.classList.remove("hidden");
+  railItem?.classList.remove("hidden");
+
+  const visible = filter === "all" ? list : list.filter((c) => c.kind === filter);
+  if (!visible.length) {
+    grid.innerHTML = `<p class="mono-sub">Bu kategoride henüz kayıt yok.</p>`;
+    return;
+  }
+
+  grid.innerHTML = visible
+    .map(
+      (c, idx) => `
+      <article class="cred-card tilt-card" data-tilt="3" style="--delay: ${idx * 0.05}s">
+        <div class="cred-top">
+          <span class="cred-badge">${escapeHtml(c.kindLabel || c.kind || "Yetkinlik")}</span>
+          ${c.date ? `<span class="cred-date">${escapeHtml(c.date)}</span>` : ""}
+        </div>
+        <h3 class="cred-title">${escapeHtml(c.title)}</h3>
+        ${c.org ? `<div class="cred-org">${escapeHtml(c.org)}</div>` : ""}
+        ${c.detail ? `<p class="cred-detail">${escapeHtml(c.detail)}</p>` : ""}
+      </article>
+    `
+    )
+    .join("");
+}
+
+/* ==========================================================================
+   LIVE MARKET PULSE STRIP
+   ========================================================================== */
+async function initMarketPulse(site) {
+  const strip = document.getElementById("marketPulseStrip");
+  const itemsWrap = document.getElementById("marketPulseItems");
+  if (!strip || !itemsWrap) return;
+  if (site.showMarketPulse === false || window.location.protocol === "file:") {
+    strip.classList.add("hidden");
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/market-pulse", { cache: "no-store" });
+    if (!res.ok) return;
+    const data = await res.json();
+    const items = data.items || [];
+    if (!items.length) return;
+
+    itemsWrap.innerHTML = items
+      .map((it) => `<div class="market-pulse-chip"><span>${escapeHtml(it.symbol)}</span><strong>${escapeHtml(it.value)}</strong></div>`)
+      .join("");
+    strip.classList.remove("hidden");
+  } catch {
+    // Ağ yoksa sessizce gizli kalsın
+  }
+}
+
+/* ==========================================================================
+   QUICK VISITOR CONTACT FORM -> ADMIN INBOX
+   ========================================================================== */
+function initContactMessageForm() {
+  const form = document.getElementById("contactMessageForm");
+  const statusEl = document.getElementById("msgFormStatus");
+  const submitBtn = document.getElementById("msgSubmitBtn");
+  const toast = document.getElementById("toast");
+  if (!form || !submitBtn) return;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const lang = document.documentElement.getAttribute("data-lang") || "tr";
+    const name = (document.getElementById("msgName")?.value || "").trim();
+    const organization = (document.getElementById("msgOrg")?.value || "").trim();
+    const contactInfo = (document.getElementById("msgContact")?.value || "").trim();
+    const topic = (document.getElementById("msgTopic")?.value || "").trim();
+    const message = (document.getElementById("msgBody")?.value || "").trim();
+    if (!name || !contactInfo || !message) return;
+
+    submitBtn.disabled = true;
+    if (statusEl) statusEl.textContent = lang === "en" ? "Sending..." : "Gönderiliyor...";
+
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, organization, contactInfo, topic, message }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (statusEl) statusEl.textContent = payload.error || (lang === "en" ? "Could not send message." : "Mesaj gönderilemedi.");
+      } else {
+        form.reset();
+        if (statusEl) statusEl.textContent = lang === "en" ? "Received! Thank you." : "Mesajınız iletildi! Teşekkürler.";
+        if (toast) {
+          toast.textContent = lang === "en" ? "Message delivered!" : "Mesajınız iletildi!";
+          toast.classList.add("show");
+          setTimeout(() => toast.classList.remove("show"), 2600);
+        }
+      }
+    } catch {
+      if (statusEl) statusEl.textContent = lang === "en" ? "Connection error." : "Bağlantı hatası oluştu.";
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+}
+
+/* ==========================================================================
+   TR / EN LANGUAGE TOGGLE
+   ========================================================================== */
+function initLanguageToggle(data) {
+  const btn = document.getElementById("langToggle");
+  if (!btn) return;
+
+  const trSnapshot = {};
+  const trackedIds = [
+    "topbarCta", "heroCtaPrimaryText", "heroCtaSecondaryText", "heroCvBtnText",
+    "aboutTag", "aboutTitlePrefix", "aboutTitleHighlight",
+    "credTag", "credTitlePrefix", "credTitleHighlight",
+    "projectsTag", "projectsTitlePrefix", "projectsTitleHighlight", "projectsSub",
+    "eventsTag", "eventsTitlePrefix", "eventsTitleHighlight",
+    "ideasTag", "ideasTitlePrefix", "ideasTitleHighlight", "ideasSub",
+    "socialTag", "socialTitlePrefix", "socialTitleHighlight",
+    "contactTag", "contactTitlePrefix", "contactTitleHighlight", "contactDesc",
+    "contactCvLabel", "contactCvTitle", "contactCvViewBtn", "contactCvBtn",
+    "msgFormTag", "msgFormTitle", "msgSubmitBtn", "footerNote", "chatBotTitle",
+  ];
+  trackedIds.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) trSnapshot[id] = el.textContent;
+  });
+
+  function applyLang(lang) {
+    document.documentElement.setAttribute("data-lang", lang);
+    document.documentElement.lang = lang;
+    localStorage.setItem("blog-lang-v1", lang);
+    btn.textContent = lang === "tr" ? "EN" : "TR";
+
+    const isEn = lang === "en";
+    const enMap = {
+      topbarCta: "Let's Connect ↗",
+      heroCtaPrimaryText: "Get in Touch",
+      heroCtaSecondaryText: "Projects & Summits",
+      heroCvBtnText: "Download CV (PDF) ↓",
+      aboutTag: "01 / ABOUT",
+      aboutTitlePrefix: "Interdisciplinary",
+      aboutTitleHighlight: "Profile",
+      credTag: "EDUCATION, CERTIFICATIONS & SKILLS",
+      credTitlePrefix: "Academic &",
+      credTitleHighlight: "Technical Toolkit",
+      projectsTag: "02 / PROJECTS",
+      projectsTitlePrefix: "Systems I've",
+      projectsTitleHighlight: "Built",
+      projectsSub: "ARCHITECTURE · PRODUCT · AUTOMATION",
+      eventsTag: "03 / INSTITUTIONS & SUMMITS",
+      eventsTitlePrefix: "Attended",
+      eventsTitleHighlight: "Ecosystems",
+      ideasTag: "04 / IDEAS & ANALYSES",
+      ideasTitlePrefix: "Notes &",
+      ideasTitleHighlight: "Perspectives",
+      ideasSub: "READABLE ARTICLES",
+      socialTag: "05 / LIVE SOCIAL STREAM",
+      socialTitlePrefix: "Instagram, LinkedIn, GitHub &",
+      socialTitleHighlight: "YouTube",
+      contactTag: "06 / LET'S CONNECT",
+      contactTitlePrefix: "Ready to create value across capital markets, treasury, and",
+      contactTitleHighlight: "technology.",
+      contactDesc: "As a university student combining software engineering with capital markets, investment, and treasury initiatives, I am open to taking responsibility in treasury, investment, or technology teams at leading banks and corporate institutions.",
+      contactCvLabel: "CURRICULUM VITAE (PDF)",
+      contactCvTitle: "View or download my latest resume in one click.",
+      contactCvViewBtn: "Preview ↗",
+      contactCvBtn: "Download PDF ↓",
+      msgFormTag: "QUICK NOTE & INTERVIEW REQUEST",
+      msgFormTitle: "Leave a note directly — it arrives straight in my inbox.",
+      msgSubmitBtn: "Send Message →",
+      footerNote: "All rights reserved.",
+    };
+
+    trackedIds.forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (isEn && enMap[id]) {
+        el.textContent = enMap[id];
+      } else if (!isEn && trSnapshot[id] !== undefined) {
+        el.textContent = trSnapshot[id];
+      }
+    });
+
+    const railMap = {
+      hero: isEn ? "Intro" : "Giriş",
+      about: isEn ? "Profile" : "Profil",
+      credentials: isEn ? "Toolkit" : "Yetkinlik",
+      projects: isEn ? "Projects" : "Projeler",
+      events: isEn ? "Summits" : "Zirveler",
+      ideas: isEn ? "Ideas" : "Fikirler",
+      social: isEn ? "Social" : "Sosyal Akış",
+      contact: isEn ? "Connect" : "Tanışalım",
+    };
+    document.querySelectorAll(".rail-item").forEach((item) => {
+      const lbl = item.querySelector(".rail-label");
+      const key = item.dataset.section;
+      if (lbl && railMap[key]) lbl.textContent = railMap[key];
+    });
+
+    const filterText = {
+      eventFilters: isEn ? { all: "All", zirve: "Summit", sirket: "Company", etkinlik: "Community" } : { all: "Tümü", zirve: "Zirve", sirket: "Şirket & Kurum", etkinlik: "Topluluk" },
+      credFilters: isEn ? { all: "All", egitim: "Education", sertifika: "Certification", yetkinlik: "Skill" } : { all: "Tümü", egitim: "Eğitim", sertifika: "Sertifika", yetkinlik: "Yetkinlik" },
+      socialFilters: isEn ? { all: "All" } : { all: "Tümü" },
+    };
+    Object.entries(filterText).forEach(([barId, map]) => {
+      const bar = document.getElementById(barId);
+      if (!bar) return;
+      bar.querySelectorAll(".filter-btn").forEach((b) => {
+        const key = b.dataset.eventFilter || b.dataset.credFilter || b.dataset.filter;
+        if (key && map[key]) b.textContent = map[key];
+      });
+      moveFilterPill(bar);
+    });
+
+    const chatInput = document.getElementById("chatInput");
+    if (chatInput) {
+      chatInput.placeholder = isEn ? "Ask anything about Emir..." : "Emir hakkında bir soru sorun...";
+    }
+    const msgName = document.getElementById("msgName");
+    const msgOrg = document.getElementById("msgOrg");
+    const msgContact = document.getElementById("msgContact");
+    const msgTopic = document.getElementById("msgTopic");
+    const msgBody = document.getElementById("msgBody");
+    if (msgName) msgName.placeholder = isEn ? "Full Name *" : "Adınız Soyadınız *";
+    if (msgOrg) msgOrg.placeholder = isEn ? "Bank / Company / Institution" : "Kurum / Banka / Şirket";
+    if (msgContact) msgContact.placeholder = isEn ? "Email or Phone *" : "E-posta veya Telefon *";
+    if (msgTopic) msgTopic.placeholder = isEn ? "Topic (e.g. Internship, Treasury, Collaboration)" : "Konu (ör. Staj, Hazine Ekibi, İş Birliği)";
+    if (msgBody) msgBody.placeholder = isEn ? "Write your message or interview request... *" : "Mesajınızı veya görüşme talebinizi yazın... *";
+  }
+
+  const savedLang = localStorage.getItem("blog-lang-v1");
+  if (savedLang === "en") applyLang("en");
+
+  btn.addEventListener("click", () => {
+    const current = document.documentElement.getAttribute("data-lang") || "tr";
+    applyLang(current === "tr" ? "en" : "tr");
+  });
 }

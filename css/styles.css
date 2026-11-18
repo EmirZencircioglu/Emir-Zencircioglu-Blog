@@ -2439,3 +2439,212 @@ img {
     bottom: 72px;
   }
 }
+
+/* ==========================================================================
+   LANGUAGE TOGGLE, MARKET PULSE, CREDENTIALS, CV BAR & QUICK MESSAGE FORM
+   ========================================================================== */
+.lang-toggle {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  transition: border-color 0.25s ease, color 0.25s ease, background-color 0.25s ease;
+}
+
+.lang-toggle:hover {
+  border-color: var(--border-hover);
+  color: var(--brand);
+}
+
+.market-pulse {
+  margin-top: 22px;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 16px;
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+}
+
+.market-pulse-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  color: var(--brand);
+}
+
+.market-pulse-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.market-pulse-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+}
+
+.market-pulse-chip span {
+  color: var(--text-muted);
+}
+
+.market-pulse-chip strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.credentials-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 20px;
+}
+
+.cred-card {
+  padding: 24px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.3s ease, transform 0.35s var(--ease-spring), box-shadow 0.3s ease;
+}
+
+.cred-card:hover {
+  border-color: var(--border-hover);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-card);
+}
+
+.cred-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cred-badge {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-soft);
+  color: var(--brand);
+  letter-spacing: 0.04em;
+}
+
+.cred-date {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--text-subtle);
+}
+
+.cred-title {
+  font-family: var(--font-display);
+  font-size: 1.42rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.cred-org {
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: var(--emerald);
+}
+
+.cred-detail {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.contact-cv-bar {
+  margin-top: 20px;
+  padding: 20px 24px;
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.contact-cv-bar strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.contact-msg-form {
+  margin-top: 22px;
+  padding: 24px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.contact-msg-head strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1.05rem;
+  font-weight: 500;
+}
+
+.contact-msg-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.contact-msg-form input,
+.contact-msg-form textarea {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.88rem;
+  padding: 11px 14px;
+  outline: none;
+  transition: border-color 0.25s ease;
+}
+
+.contact-msg-form input:focus,
+.contact-msg-form textarea:focus {
+  border-color: var(--brand);
+}
+
+.contact-msg-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+
+@media (max-width: 640px) {
+  .contact-msg-grid {
+    grid-template-columns: 1fr;
+  }
+}
