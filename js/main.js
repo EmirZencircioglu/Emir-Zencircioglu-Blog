@@ -189,10 +189,10 @@ function hydrateProfile(data) {
 
   // Giriş (Hero) yazıları ve rozetleri
   if (hero.kicker) setText("heroKicker", hero.kicker);
-  if (hero.titleLine1) setText("heroTitleLine1", hero.titleLine1);
-  if (hero.titlePrefix) setText("heroTitlePrefix", hero.titlePrefix);
-  if (hero.titleHighlight) setText("heroTitleHighlight", hero.titleHighlight);
-  if (hero.titleLine3) setText("heroTitleLine3", hero.titleLine3);
+  if (hero.titleLine1 !== undefined) setText("heroTitleLine1", hero.titleLine1);
+  if (hero.titlePrefix !== undefined) setText("heroTitlePrefix", hero.titlePrefix);
+  if (hero.titleHighlight !== undefined) setText("heroTitleHighlight", hero.titleHighlight);
+  if (hero.titleLine3 !== undefined) setText("heroTitleLine3", hero.titleLine3);
   if (hero.subtitle) setText("heroSubtitle", hero.subtitle);
   if (hero.primaryCtaText) setText("heroCtaPrimaryText", hero.primaryCtaText);
   if (hero.secondaryCtaText) setText("heroCtaSecondaryText", hero.secondaryCtaText);
