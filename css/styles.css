@@ -74,6 +74,8 @@
 html {
   scroll-behavior: smooth;
   font-size: 16px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 body {
@@ -82,8 +84,19 @@ body {
   color: var(--text);
   line-height: 1.6;
   overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   transition: background-color 0.45s var(--ease-spring), color 0.45s var(--ease-spring);
   -webkit-font-smoothing: antialiased;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+  background: transparent;
 }
 
 a {
