@@ -8,8 +8,9 @@ let ADMIN_CONTENT = {};
 document.addEventListener("DOMContentLoaded", async () => {
   initNavigation();
   initPlatformSelector();
-  initImageUpload("socFile", "socImageUrl", "socPreview");
-  initImageUpload("evFile", "evImageUrl", "evPreview");
+  initImageUpload("ideaFile", "ideaImageUrl", "ideaPreview", "ideaAddImgBtn", "ideaRemoveImgBtn");
+  initImageUpload("socFile", "socImageUrl", "socPreview", "socAddImgBtn", "socRemoveImgBtn");
+  initImageUpload("evFile", "evImageUrl", "evPreview", "evAddImgBtn", "evRemoveImgBtn");
   initAuthForms();
   initPublishForms();
   initCancelEditButtons();
@@ -175,11 +176,45 @@ function initAuthForms() {
 /* ==========================================================================
    IMAGE UPLOAD
    ========================================================================== */
-function initImageUpload(fileInputId, urlInputId, previewId) {
+function syncImagePreview(urlInputId, previewId, removeBtnId) {
+  const urlVal = val(urlInputId);
+  const preview = document.getElementById(previewId);
+  const removeBtn = document.getElementById(removeBtnId);
+  if (preview) {
+    if (urlVal) {
+      preview.src = urlVal;
+      preview.classList.remove("hidden");
+    } else {
+      preview.removeAttribute("src");
+      preview.classList.add("hidden");
+    }
+  }
+  if (removeBtn) {
+    removeBtn.classList.toggle("hidden", !urlVal);
+  }
+}
+
+function initImageUpload(fileInputId, urlInputId, previewId, addBtnId, removeBtnId) {
   const fileInput = document.getElementById(fileInputId);
   const urlInput = document.getElementById(urlInputId);
-  const preview = document.getElementById(previewId);
+  const addBtn = document.getElementById(addBtnId);
+  const removeBtn = document.getElementById(removeBtnId);
   if (!fileInput || !urlInput) return;
+
+  addBtn?.addEventListener("click", () => {
+    fileInput.click();
+  });
+
+  removeBtn?.addEventListener("click", () => {
+    urlInput.value = "";
+    fileInput.value = "";
+    syncImagePreview(urlInputId, previewId, removeBtnId);
+    showToast("Resim kaldırıldı.");
+  });
+
+  urlInput.addEventListener("input", () => {
+    syncImagePreview(urlInputId, previewId, removeBtnId);
+  });
 
   fileInput.addEventListener("change", () => {
     const file = fileInput.files?.[0];
@@ -202,10 +237,7 @@ function initImageUpload(fileInputId, urlInputId, previewId) {
           return;
         }
         urlInput.value = data.url;
-        if (preview) {
-          preview.src = data.url;
-          preview.classList.remove("hidden");
-        }
+        syncImagePreview(urlInputId, previewId, removeBtnId);
         showToast("Görsel sunucuya yüklendi!");
       } catch {
         showToast("Görsel yüklenirken hata oluştu.", true);
@@ -479,6 +511,8 @@ function startEditingItem(section, id) {
     setVal("ideaTitle", item.title || "");
     setVal("ideaSummary", item.summary || "");
     setVal("ideaContent", Array.isArray(item.content) ? item.content.join("\n\n") : item.content || "");
+    setVal("ideaImageUrl", item.image || "");
+    syncImagePreview("ideaImageUrl", "ideaPreview", "ideaRemoveImgBtn");
   } else if (section === "events") {
     setVal("evCategory", item.category || "zirve");
     setVal("evDate", item.date || "");
@@ -486,15 +520,7 @@ function startEditingItem(section, id) {
     setVal("evTitle", item.title || "");
     setVal("evDesc", item.description || "");
     setVal("evImageUrl", item.image || "");
-    const preview = document.getElementById("evPreview");
-    if (preview) {
-      if (item.image) {
-        preview.src = item.image;
-        preview.classList.remove("hidden");
-      } else {
-        preview.classList.add("hidden");
-      }
-    }
+    syncImagePreview("evImageUrl", "evPreview", "evRemoveImgBtn");
   } else if (section === "projects") {
     setVal("projTitle", item.title || "");
     setVal("projYear", item.year || "");
@@ -510,17 +536,9 @@ function startEditingItem(section, id) {
     setVal("socTitle", item.title || "");
     setVal("socExcerpt", item.excerpt || "");
     setVal("socYtId", item.youtubeId || "");
-    setVal("socUrl", item.url || "");
+    setVal("socUrl", item.url && item.url !== "#" ? item.url : "");
     setVal("socImageUrl", item.image || "");
-    const preview = document.getElementById("socPreview");
-    if (preview) {
-      if (item.image) {
-        preview.src = item.image;
-        preview.classList.remove("hidden");
-      } else {
-        preview.classList.add("hidden");
-      }
-    }
+    syncImagePreview("socImageUrl", "socPreview", "socRemoveImgBtn");
   }
 
   form.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -544,9 +562,11 @@ function cancelEditing(formId) {
 
   if (formId === "formSocial") {
     setSocialPlatformUI("instagram");
-    document.getElementById("socPreview")?.classList.add("hidden");
+    syncImagePreview("socImageUrl", "socPreview", "socRemoveImgBtn");
   } else if (formId === "formEvent") {
-    document.getElementById("evPreview")?.classList.add("hidden");
+    syncImagePreview("evImageUrl", "evPreview", "evRemoveImgBtn");
+  } else if (formId === "formIdea") {
+    syncImagePreview("ideaImageUrl", "ideaPreview", "ideaRemoveImgBtn");
   }
 }
 
@@ -592,13 +612,13 @@ function initPublishForms() {
       title: val("socTitle"),
       excerpt: val("socExcerpt"),
       metric: val("socMetric") || "Yeni",
-      url: val("socUrl"),
+      url: val("socUrl") || "#",
       image: val("socImageUrl") || null,
     };
     const ytId = val("socYtId");
     item.youtubeId = platform === "youtube" && ytId ? ytId : null;
 
-    await publishItem("socialPosts", item, e.target, "socPreview");
+    await publishItem("socialPosts", item, e.target, "socPreview", "socRemoveImgBtn");
   });
 
   // Blog / Idea
@@ -616,8 +636,9 @@ function initPublishForms() {
       title: val("ideaTitle"),
       summary: val("ideaSummary"),
       content: paragraphs,
+      image: val("ideaImageUrl") || null,
     };
-    await publishItem("ideas", item, e.target);
+    await publishItem("ideas", item, e.target, "ideaPreview", "ideaRemoveImgBtn");
   });
 
   // Event / Summit
@@ -633,7 +654,7 @@ function initPublishForms() {
       description: val("evDesc"),
       image: val("evImageUrl") || null,
     };
-    await publishItem("events", item, e.target, "evPreview");
+    await publishItem("events", item, e.target, "evPreview", "evRemoveImgBtn");
   });
 
   // Project
@@ -692,7 +713,7 @@ function initPublishForms() {
   });
 }
 
-async function publishItem(section, item, form, previewId) {
+async function publishItem(section, item, form, previewId, removeBtnId) {
   const editId = form.dataset.editId;
   const isEditing = Boolean(editId);
 
@@ -710,6 +731,7 @@ async function publishItem(section, item, form, previewId) {
       form.reset();
       if (form.id === "formSocial") setSocialPlatformUI("instagram");
       if (previewId) document.getElementById(previewId)?.classList.add("hidden");
+      if (removeBtnId) document.getElementById(removeBtnId)?.classList.add("hidden");
       showToast("İçerik başarıyla yayınlandı!");
     }
     await loadAdminContent();

@@ -553,3 +553,18 @@
 .form-actions-row .full-btn {
   margin-top: 0;
 }
+
+.image-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.remove-img-btn {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.3);
+}
+
+.remove-img-btn:hover {
+  background: rgba(248, 113, 113, 0.12);
+}

@@ -129,9 +129,11 @@ function renderSocialFeed(posts, filter) {
           </div>
           <div class="social-footer">
             <span>${escapeHtml(post.metric)}</span>
-            <a href="${escapeHtml(post.url)}" target="_blank" rel="noopener noreferrer" class="social-link">
-              İncele <span>→</span>
-            </a>
+            ${
+              post.url && post.url !== "#"
+                ? `<a href="${escapeHtml(post.url)}" target="_blank" rel="noopener noreferrer" class="social-link">İncele <span>→</span></a>`
+                : ""
+            }
           </div>
         </article>
       `;
@@ -320,7 +322,10 @@ function initModals(data) {
     setText("modalArticleTitle", idea.title);
     const body = document.getElementById("modalArticleBody");
     if (body) {
-      body.innerHTML = idea.content.map((p) => `<p>${escapeHtml(p)}</p>`).join("");
+      const coverHtml = idea.image
+        ? `<img src="${escapeHtml(idea.image)}" alt="${escapeHtml(idea.title)}" class="article-modal-cover" />`
+        : "";
+      body.innerHTML = coverHtml + idea.content.map((p) => `<p>${escapeHtml(p)}</p>`).join("");
     }
     openModal(articleModal);
   });

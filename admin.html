@@ -199,6 +199,18 @@
                 <span>İçerik (Her paragrafı boş bir satırla ayır)</span>
                 <textarea id="ideaContent" rows="8" required placeholder="Birinci paragraf...&#10;&#10;İkinci paragraf..."></textarea>
               </label>
+              <div class="field">
+                <span>Kapak Resmi (Opsiyonel)</span>
+                <div class="upload-box">
+                  <input type="file" id="ideaFile" accept="image/*" class="hidden" />
+                  <div class="image-btn-row">
+                    <button type="button" class="btn btn-ghost btn-sm" id="ideaAddImgBtn">+ Resim Ekle / Değiştir</button>
+                    <button type="button" class="btn btn-ghost btn-sm remove-img-btn hidden" id="ideaRemoveImgBtn">Resmi Kaldır</button>
+                  </div>
+                  <input type="text" id="ideaImageUrl" placeholder="Opsiyonel: yüklenen görsel yolu veya https://..." />
+                </div>
+                <img id="ideaPreview" class="upload-preview hidden" alt="Önizleme" />
+              </div>
               <div class="form-actions-row">
                 <button type="submit" class="btn btn-primary full-btn" data-submit-for="formIdea" data-default-label="Blog Yazısını Yayınla">Blog Yazısını Yayınla</button>
                 <button type="button" class="btn btn-ghost hidden" data-cancel-edit="formIdea">İptal</button>
@@ -255,14 +267,18 @@
                 </label>
               </div>
               <label class="field">
-                <span>Açıklama</span>
-                <textarea id="evDesc" rows="3" required placeholder="Orada neler yaptın, kimlerle buluştun?"></textarea>
+                <span>Açıklama (Opsiyonel)</span>
+                <textarea id="evDesc" rows="3" placeholder="Orada neler yaptın, kimlerle buluştun?"></textarea>
               </label>
               <div class="field">
-                <span>Fotoğraf Yükle veya URL Gir (Opsiyonel)</span>
+                <span>Fotoğraf (Opsiyonel)</span>
                 <div class="upload-box">
-                  <input type="file" id="evFile" accept="image/*" />
-                  <input type="text" id="evImageUrl" placeholder="Yüklenen fotoğraf yolu veya https://..." />
+                  <input type="file" id="evFile" accept="image/*" class="hidden" />
+                  <div class="image-btn-row">
+                    <button type="button" class="btn btn-ghost btn-sm" id="evAddImgBtn">+ Resim Ekle / Değiştir</button>
+                    <button type="button" class="btn btn-ghost btn-sm remove-img-btn hidden" id="evRemoveImgBtn">Resmi Kaldır</button>
+                  </div>
+                  <input type="text" id="evImageUrl" placeholder="Opsiyonel: yüklenen fotoğraf yolu veya https://..." />
                 </div>
                 <img id="evPreview" class="upload-preview hidden" alt="Önizleme" />
               </div>
@@ -387,8 +403,8 @@
               </label>
 
               <label class="field">
-                <span>Kısa Açıklama / Alıntı</span>
-                <textarea id="socExcerpt" rows="3" required placeholder="Paylaşımının öne çıkan özeti..."></textarea>
+                <span>Kısa Açıklama / Alıntı (Opsiyonel)</span>
+                <textarea id="socExcerpt" rows="3" placeholder="Paylaşımının öne çıkan özeti..."></textarea>
               </label>
 
               <label class="field hidden" id="ytIdField">
@@ -397,15 +413,19 @@
               </label>
 
               <label class="field">
-                <span>Gönderi Linki</span>
-                <input type="url" id="socUrl" required placeholder="https://..." />
+                <span>Gönderi Linki (Opsiyonel)</span>
+                <input type="text" id="socUrl" placeholder="https://..." />
               </label>
 
               <div class="field">
-                <span>Görsel Yükle veya URL Gir (Instagram / YouTube için önerilir)</span>
+                <span>Görsel (Opsiyonel)</span>
                 <div class="upload-box">
-                  <input type="file" id="socFile" accept="image/*" />
-                  <input type="text" id="socImageUrl" placeholder="Yüklenen görsel yolu veya https://..." />
+                  <input type="file" id="socFile" accept="image/*" class="hidden" />
+                  <div class="image-btn-row">
+                    <button type="button" class="btn btn-ghost btn-sm" id="socAddImgBtn">+ Resim Ekle / Değiştir</button>
+                    <button type="button" class="btn btn-ghost btn-sm remove-img-btn hidden" id="socRemoveImgBtn">Resmi Kaldır</button>
+                  </div>
+                  <input type="text" id="socImageUrl" placeholder="Opsiyonel: yüklenen görsel yolu veya https://..." />
                 </div>
                 <img id="socPreview" class="upload-preview hidden" alt="Önizleme" />
               </div>

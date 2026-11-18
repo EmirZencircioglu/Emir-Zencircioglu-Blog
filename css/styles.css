@@ -1469,6 +1469,15 @@ img {
   margin-bottom: 24px;
 }
 
+.article-modal-cover {
+  width: 100%;
+  max-height: 360px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  margin-bottom: 22px;
+  border: 1px solid var(--border);
+}
+
 .article-modal-body p {
   color: var(--text-muted);
   margin-bottom: 18px;
