@@ -2424,15 +2424,6 @@ img {
   cursor: not-allowed;
 }
 
-.chat-powered {
-  text-align: center;
-  font-size: 0.66rem;
-  font-family: var(--font-mono);
-  color: var(--text-subtle);
-  padding: 5px 10px 7px;
-  background: var(--bg-card);
-}
-
 @media (max-width: 540px) {
   .chat-widget {
     right: 14px;
