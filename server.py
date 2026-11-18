@@ -137,13 +137,26 @@ CHAT_RATE_LIMIT: dict[str, list[float]] = {}
 CHAT_MAX_REQUESTS = 20
 CHAT_WINDOW_SECONDS = 60
 GEMINI_MODELS = [
+    # Gemini 4 ailesi (en yeni nesil öncelikli)
+    "gemini-4.5-flash",
+    "gemini-4.0-flash",
+    "gemini-4-flash",
+    "gemini-4-flash-lite",
+    "gemini-4.5-pro",
+    "gemini-4.0-pro",
+    "gemini-4-pro",
+    # Gemini 3 ailesi & güncel takma adlar
     "gemini-3.8-flash",
+    "gemini-3.8-flash-lite",
     "gemini-3.7-flash",
     "gemini-3.5-flash",
     "gemini-flash-latest",
-    "gemini-3.8-flash-lite",
+    "gemini-flash-lite-latest",
+    "gemini-3.8-pro",
+    "gemini-pro-latest",
 ]
 _CACHED_GEMINI_MODEL: str | None = None
+_DISCOVERED_MODELS_CACHE: dict[str, object] = {"ts": 0.0, "models": []}
 
 
 def get_gemini_api_key() -> tuple[str | None, str | None]:
@@ -220,52 +233,85 @@ def _build_portfolio_system_prompt(content: dict) -> str:
     )
 
 
+def _model_sort_key(name: str) -> tuple:
+    lower = name.lower()
+    is_gemini = 0 if lower.startswith("gemini") else 1
+    m = re.search(r"(\d+)(?:\.(\d+))?", lower)
+    major = int(m.group(1)) if m else 0
+    minor = int(m.group(2) or 0) if m else 0
+    # flash-lite / flash önce (hızlı), sonra pro, sonra diğerleri
+    if "flash" in lower and "lite" not in lower:
+        tier = 0
+    elif "flash" in lower:
+        tier = 1
+    elif "pro" in lower:
+        tier = 2
+    else:
+        tier = 3
+    is_exp = 1 if any(tag in lower for tag in ("exp", "preview")) else 0
+    return (is_gemini, -major, -minor, tier, is_exp, lower)
+
+
 def _discover_gemini_models(api_key: str) -> list[str]:
-    """Kullanılabilir generateContent modellerini Gemini API'den dinamik olarak çeker."""
-    url = "https://generativelanguage.googleapis.com/v1beta/models?pageSize=100"
-    req = urllib.request.Request(url, method="GET", headers={"x-goog-api-key": api_key})
-    try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        err_body = ""
+    """Kullanılabilir tüm generateContent Gemini/Gemma modellerini API'den dinamik çeker."""
+    now_ts = time.time()
+    cached_list = _DISCOVERED_MODELS_CACHE.get("models") or []
+    if cached_list and now_ts - float(_DISCOVERED_MODELS_CACHE.get("ts") or 0.0) < 600:
+        return list(cached_list)
+
+    raw_models = []
+    page_token = ""
+    for _ in range(4):
+        url = "https://generativelanguage.googleapis.com/v1beta/models?pageSize=100"
+        if page_token:
+            url += f"&pageToken={urllib.request.quote(page_token)}"
+        req = urllib.request.Request(url, method="GET", headers={"x-goog-api-key": api_key})
         try:
-            err_body = e.read().decode("utf-8", errors="ignore")
-        except Exception:
-            pass
-        print(f"[Gemini discover] HTTP {e.code}: {err_body[:300]}", flush=True)
-        if e.code in (400, 401, 403):
-            raise RuntimeError("Gemini API anahtarı geçersiz veya yetkisiz görünüyor.") from e
-        return []
-    except Exception as e:
-        print(f"[Gemini discover] Exception: {e}", flush=True)
-        return []
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            err_body = ""
+            try:
+                err_body = e.read().decode("utf-8", errors="ignore")
+            except Exception:
+                pass
+            print(f"[Gemini discover] HTTP {e.code}: {err_body[:300]}", flush=True)
+            if e.code in (401, 403) or (e.code == 400 and "api key" in err_body.lower()):
+                raise RuntimeError("Gemini API anahtarı geçersiz veya yetkisiz görünüyor.") from e
+            break
+        except Exception as e:
+            print(f"[Gemini discover] Exception: {e}", flush=True)
+            break
 
-    raw_models = data.get("models") or []
-    print(f"[Gemini discover] {len(raw_models)} models listed: {[m.get('name') for m in raw_models[:12]]}", flush=True)
+        raw_models.extend(data.get("models") or [])
+        page_token = str(data.get("nextPageToken") or "").strip()
+        if not page_token:
+            break
 
-    excluded = ("tts", "image", "embedding", "aqa", "robotics", "computer-use", "audio")
+    excluded = ("tts", "image", "embedding", "aqa", "robotics", "computer-use", "audio", "veo", "imagen", "lyria")
     candidates = []
+    seen = set()
     for m in raw_models:
         methods = m.get("supportedGenerationMethods") or []
         if "generateContent" not in methods:
             continue
         name = str(m.get("name") or "").removeprefix("models/").strip()
         lower = name.lower()
-        if not name or not lower.startswith("gemini") or any(tag in lower for tag in excluded):
+        if not name or name in seen or any(tag in lower for tag in excluded):
             continue
-        priority = 0 if "flash" in lower else (1 if "pro" in lower else 2)
-        candidates.append((priority, name))
+        seen.add(name)
+        candidates.append(name)
 
-    candidates.sort(key=lambda item: (item[0], item[1]))
-    flash_first = [name for pr, name in candidates if pr == 0]
-    flash_first.reverse()
-    others = [name for pr, name in candidates if pr > 0]
-    return flash_first + others
+    candidates.sort(key=_model_sort_key)
+    print(f"[Gemini discover] {len(candidates)} active chat models: {candidates[:20]}", flush=True)
+    if candidates:
+        _DISCOVERED_MODELS_CACHE["ts"] = now_ts
+        _DISCOVERED_MODELS_CACHE["models"] = candidates
+    return candidates
 
 
-def _try_gemini_model(api_key: str, model: str, payload_bytes: bytes) -> tuple[str | None, str | None, bool]:
-    """Tek bir modeli dener: (reply_text, err_msg, is_not_found)."""
+def _try_gemini_model(api_key: str, model: str, payload_bytes: bytes, fallback_bytes: bytes | None = None) -> tuple[str | None, str | None, bool]:
+    """Tek bir modeli dener: (reply_text, err_msg, retryable). Yoğunlukta (429/503) diğer modele geçer."""
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     req = urllib.request.Request(
         url,
@@ -277,7 +323,7 @@ def _try_gemini_model(api_key: str, model: str, payload_bytes: bytes) -> tuple[s
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=25) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode("utf-8"))
         candidates = data.get("candidates") or []
         if candidates:
@@ -285,29 +331,30 @@ def _try_gemini_model(api_key: str, model: str, payload_bytes: bytes) -> tuple[s
             reply_text = "".join(str(p.get("text", "")) for p in parts).strip()
             if reply_text:
                 return reply_text, None, False
-        return None, "Gemini boş yanıt döndürdü.", False
+        return None, f"Model boş yanıt döndürdü ({model}).", True
     except urllib.error.HTTPError as e:
         err_body = ""
         try:
             err_body = e.read().decode("utf-8", errors="ignore")
         except Exception:
             pass
-        print(f"[Gemini try {model}] HTTP {e.code}: {err_body[:300]}", flush=True)
-        if e.code == 404:
+        print(f"[Gemini try {model}] HTTP {e.code}: {err_body[:260]}", flush=True)
+        if e.code in (401, 403) or (e.code == 400 and "api key" in err_body.lower()):
+            raise RuntimeError("Gemini API anahtarı geçersiz veya yetkisiz görünüyor.") from e
+        # Gemma vb. modeller developer/systemInstruction desteklemezse düz metin birleştirme ile tekrar dene
+        if e.code == 400 and "developer instruction" in err_body.lower() and fallback_bytes is not None:
+            return _try_gemini_model(api_key, model, fallback_bytes, None)
+        if e.code in (404, 429, 500, 502, 503, 504):
             detail = ""
             try:
                 detail = str((json.loads(err_body).get("error") or {}).get("message") or "")
             except Exception:
                 detail = err_body[:120]
-            return None, f"Model bulunamadı ({model}): {detail}", True
-        if e.code in (401, 403) or (e.code == 400 and "api key" in err_body.lower()):
-            raise RuntimeError("Gemini API anahtarı geçersiz veya yetkisiz görünüyor.") from e
-        if e.code == 429:
-            raise RuntimeError("Gemini API istek limiti geçici olarak doldu, lütfen biraz sonra tekrar deneyin.") from e
-        return None, f"Gemini API hatası ({e.code}, {model}): {err_body[:160]}", False
+            return None, f"{model} ({e.code}): {detail[:120]}", True
+        return None, f"Gemini API hatası ({e.code}, {model}): {err_body[:160]}", True
     except Exception as e:
         print(f"[Gemini try {model}] Exception: {e}", flush=True)
-        return None, f"Bağlantı hatası ({model}): {e}", False
+        return None, f"Bağlantı hatası ({model}): {e}", True
 
 
 def call_gemini_api(api_key: str, system_prompt: str, history: list, user_message: str) -> str:
@@ -335,34 +382,48 @@ def call_gemini_api(api_key: str, system_prompt: str, history: list, user_messag
         ensure_ascii=False,
     ).encode("utf-8")
 
-    tried = set()
-    initial_models = ([_CACHED_GEMINI_MODEL] if _CACHED_GEMINI_MODEL else []) + list(GEMINI_MODELS)
-    last_error = "Gemini servisine bağlanılamadı."
+    # systemInstruction desteklemeyen modeller için yedek gövde
+    fallback_contents = [
+        {"role": "user", "parts": [{"text": f"[SİSTEM TALİMATI]\n{system_prompt}\n\n[SORU]\n{contents[0]['parts'][0]['text']}"}]},
+        *contents[1:],
+    ]
+    fallback_bytes = json.dumps(
+        {
+            "contents": fallback_contents,
+            "generationConfig": {"temperature": 0.65, "maxOutputTokens": 650},
+        },
+        ensure_ascii=False,
+    ).encode("utf-8")
 
-    for model in initial_models:
+    # Önce önbellekteki çalışan modeli, ardından API'den keşfedilen tüm aktif modelleri (Gemini 4, 3, vb.) dene
+    ordered_models = []
+    if _CACHED_GEMINI_MODEL:
+        ordered_models.append(_CACHED_GEMINI_MODEL)
+    discovered = _discover_gemini_models(api_key)
+    ordered_models.extend(discovered)
+    if not discovered:
+        ordered_models.extend(GEMINI_MODELS)
+
+    tried = set()
+    last_error = "Gemini servisine bağlanılamadı."
+    start_ts = time.monotonic()
+
+    for model in ordered_models:
         if not model or model in tried:
             continue
+        if time.monotonic() - start_ts > 26:
+            break
         tried.add(model)
-        reply_text, err_msg, _ = _try_gemini_model(api_key, model, payload_bytes)
+        reply_text, err_msg, _ = _try_gemini_model(api_key, model, payload_bytes, fallback_bytes)
         if reply_text:
             _CACHED_GEMINI_MODEL = model
             return reply_text
+        if model == _CACHED_GEMINI_MODEL:
+            _CACHED_GEMINI_MODEL = None
         if err_msg:
             last_error = err_msg
 
-    # İlk liste 404/503 verirse API üzerinden mevcut tüm aktif modelleri keşfedip dene
-    for model in _discover_gemini_models(api_key):
-        if model in tried:
-            continue
-        tried.add(model)
-        reply_text, err_msg, _ = _try_gemini_model(api_key, model, payload_bytes)
-        if reply_text:
-            _CACHED_GEMINI_MODEL = model
-            return reply_text
-        if err_msg:
-            last_error = err_msg
-
-    raise RuntimeError(last_error)
+    raise RuntimeError(f"Tüm Gemini modelleri şu anda yoğun veya erişilemiyor. Son yanıt: {last_error}")
 
 
 TR_MONTHS = [
