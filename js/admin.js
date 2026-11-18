@@ -2,7 +2,7 @@
  * ADMIN PANELİ İSTEMCİ MANTIĞI (AYRI SAYFA / GÖRÜNÜM YÖNETİMİ)
  */
 
-const VALID_VIEWS = ["overview", "blog", "events", "projects", "social", "credentials", "inbox", "automation", "hero", "profile"];
+const VALID_VIEWS = ["overview", "blog", "events", "projects", "social", "credentials", "cv", "inbox", "automation", "hero", "profile"];
 let ADMIN_CONTENT = {};
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -452,6 +452,7 @@ function updateOverviewCounts(content) {
   setText("countProjects", (content.projects || []).length);
   setText("countSocial", (content.socialPosts || []).length);
   setText("countCredentials", (content.credentials || []).length);
+  setText("countCvStatus", (content.profile?.cvUrl || "").trim() ? "Yüklü ✓" : "Yok");
 }
 
 function renderSectionList(containerId, countId, section, items, metaFormatter, unitLabel) {
@@ -707,6 +708,7 @@ function hydrateSiteAndProfileForms(content) {
   setVal("profAvatar", profile.avatar || "");
   syncImagePreview("profAvatar", "profPreview", "profRemoveImgBtn");
   setVal("cvUrlInput", profile.cvUrl || "");
+  setVal("cvMainUrlInput", profile.cvUrl || "");
   syncCvPreview();
   setVal("profInterests", (profile.interests || []).join(", "));
   setVal("profNow", (profile.now || []).join("\n"));
@@ -1015,10 +1017,10 @@ function escapeHtml(str) {
 }
 
 /* ==========================================================================
-   PDF CV YÜKLEME & ÖNİZLEME
+   PDF CV YÜKLEME, ÖNİZLEME & ANINDA YAYINLAMA
    ========================================================================== */
 function syncCvPreview() {
-  const cvUrl = val("cvUrlInput");
+  const cvUrl = val("cvMainUrlInput") || val("cvUrlInput");
   const removeBtn = document.getElementById("cvRemoveBtn");
   const previewLink = document.getElementById("cvPreviewLink");
   if (removeBtn) removeBtn.classList.toggle("hidden", !cvUrl);
@@ -1031,6 +1033,59 @@ function syncCvPreview() {
       previewLink.classList.add("hidden");
     }
   }
+
+  const mainRemove = document.getElementById("cvMainRemoveBtn");
+  const mainActions = document.getElementById("cvMainActionsRow");
+  const mainOpen = document.getElementById("cvMainOpenLink");
+  const mainDownload = document.getElementById("cvMainDownloadLink");
+  const mainStatus = document.getElementById("cvMainStatusLabel");
+  const previewState = document.getElementById("cvPreviewState");
+  const previewEmpty = document.getElementById("cvPreviewEmpty");
+  const previewFrame = document.getElementById("cvPreviewFrame");
+
+  if (mainRemove) mainRemove.classList.toggle("hidden", !cvUrl);
+  if (mainActions) mainActions.classList.toggle("hidden", !cvUrl);
+  if (mainStatus) {
+    mainStatus.textContent = cvUrl
+      ? `Aktif CV Yayında: ${cvUrl}`
+      : "Henüz CV yüklenmedi. Dosya seçtiğinde otomatik yayınlanır.";
+  }
+  if (previewState) previewState.textContent = cvUrl ? "Aktif & Yayında" : "Dosya bekleniyor";
+
+  if (cvUrl) {
+    const dlUrl = cvUrl.includes("?") ? `${cvUrl}&download=1` : `${cvUrl}?download=1`;
+    if (mainOpen) mainOpen.href = cvUrl;
+    if (mainDownload) mainDownload.href = dlUrl;
+    if (previewEmpty) previewEmpty.classList.add("hidden");
+    if (previewFrame) {
+      if (previewFrame.getAttribute("src") !== cvUrl) previewFrame.src = cvUrl;
+      previewFrame.classList.remove("hidden");
+    }
+  } else {
+    if (previewEmpty) previewEmpty.classList.remove("hidden");
+    if (previewFrame) {
+      previewFrame.removeAttribute("src");
+      previewFrame.classList.add("hidden");
+    }
+  }
+}
+
+async function persistCvUrl(newUrl) {
+  const res = await fetch("/api/admin/profile", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ profile: { cvUrl: newUrl || null } }),
+  });
+  if (!res.ok) {
+    showToast("CV veritabanına kaydedilemedi.", true);
+    return false;
+  }
+  setVal("cvUrlInput", newUrl || "");
+  setVal("cvMainUrlInput", newUrl || "");
+  if (ADMIN_CONTENT.profile) ADMIN_CONTENT.profile.cvUrl = newUrl || null;
+  updateOverviewCounts(ADMIN_CONTENT);
+  syncCvPreview();
+  return true;
 }
 
 function initCvUpload() {
@@ -1038,19 +1093,15 @@ function initCvUpload() {
   const urlInput = document.getElementById("cvUrlInput");
   const uploadBtn = document.getElementById("cvUploadBtn");
   const removeBtn = document.getElementById("cvRemoveBtn");
-  if (!fileInput || !urlInput) return;
 
-  uploadBtn?.addEventListener("click", () => fileInput.click());
-  removeBtn?.addEventListener("click", () => {
-    urlInput.value = "";
-    fileInput.value = "";
-    syncCvPreview();
-    showToast("CV bağlantısı temizlendi (kaydetmeyi unutma).");
-  });
-  urlInput.addEventListener("input", syncCvPreview);
+  const mainFile = document.getElementById("cvMainFile");
+  const mainUrlInput = document.getElementById("cvMainUrlInput");
+  const mainUploadBtn = document.getElementById("cvMainUploadBtn");
+  const mainRemoveBtn = document.getElementById("cvMainRemoveBtn");
+  const mainSaveUrlBtn = document.getElementById("cvMainSaveUrlBtn");
+  const dropZone = document.getElementById("cvDropZone");
 
-  fileInput.addEventListener("change", () => {
-    const file = fileInput.files?.[0];
+  async function handlePdfFile(file, autoPersist) {
     if (!file) return;
     if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
       showToast("Lütfen geçerli bir PDF dosyası seç.", true);
@@ -1069,15 +1120,64 @@ function initCvUpload() {
           showToast(data.error || "PDF yüklenemedi.", true);
           return;
         }
-        urlInput.value = data.url;
-        syncCvPreview();
-        showToast("PDF CV sunucuya yüklendi! Kaydet butonuna basarak yayınla.");
+        if (autoPersist) {
+          const saved = await persistCvUrl(data.url);
+          if (saved) showToast("PDF CV yüklendi ve sitede yayınlandı!");
+        } else {
+          if (urlInput) urlInput.value = data.url;
+          if (mainUrlInput) mainUrlInput.value = data.url;
+          syncCvPreview();
+          showToast("PDF CV sunucuya yüklendi! Kaydet butonuna basarak yayınla.");
+        }
       } catch {
         showToast("CV yüklenirken hata oluştu.", true);
       }
     };
     reader.readAsDataURL(file);
+  }
+
+  uploadBtn?.addEventListener("click", () => fileInput?.click());
+  removeBtn?.addEventListener("click", () => {
+    if (urlInput) urlInput.value = "";
+    if (mainUrlInput) mainUrlInput.value = "";
+    if (fileInput) fileInput.value = "";
+    syncCvPreview();
+    showToast("CV bağlantısı temizlendi (kaydetmeyi unutma).");
   });
+  urlInput?.addEventListener("input", syncCvPreview);
+  fileInput?.addEventListener("change", () => handlePdfFile(fileInput.files?.[0], false));
+
+  mainUploadBtn?.addEventListener("click", () => mainFile?.click());
+  mainFile?.addEventListener("change", () => handlePdfFile(mainFile.files?.[0], true));
+
+  mainRemoveBtn?.addEventListener("click", async () => {
+    if (!confirm("Yayındaki CV dosyasını siteden kaldırmak istediğine emin misin?")) return;
+    if (mainFile) mainFile.value = "";
+    const saved = await persistCvUrl("");
+    if (saved) showToast("CV siteden kaldırıldı.");
+  });
+
+  mainSaveUrlBtn?.addEventListener("click", async () => {
+    const customUrl = val("cvMainUrlInput");
+    const saved = await persistCvUrl(customUrl);
+    if (saved) showToast(customUrl ? "CV bağlantısı kaydedildi!" : "CV kaldırıldı.");
+  });
+
+  if (dropZone) {
+    dropZone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = "var(--brand)";
+    });
+    dropZone.addEventListener("dragleave", () => {
+      dropZone.style.borderColor = "var(--border-hover)";
+    });
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = "var(--border-hover)";
+      const f = e.dataTransfer?.files?.[0];
+      if (f) handlePdfFile(f, true);
+    });
+  }
 }
 
 /* ==========================================================================

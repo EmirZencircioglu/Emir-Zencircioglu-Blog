@@ -110,6 +110,10 @@
           <span class="nav-ico">◈</span>
           <span>Eğitim &amp; Sertifikalar</span>
         </a>
+        <a href="#cv" class="sidebar-link" data-view="cv">
+          <span class="nav-ico">📄</span>
+          <span>CV &amp; Özgeçmiş</span>
+        </a>
         <a href="#inbox" class="sidebar-link" data-view="inbox">
           <span class="nav-ico">✉</span>
           <span>Gelen Mesajlar &amp; AI Analizi</span>
@@ -173,6 +177,11 @@
             <span class="stat-card-label">Eğitim, Sertifika &amp; Yetkinlik</span>
             <strong class="stat-card-num" id="countCredentials">0</strong>
             <span class="stat-card-cta">+ Eğitim veya sertifika ekle →</span>
+          </a>
+          <a href="#cv" class="stat-card-link" data-view="cv">
+            <span class="stat-card-label">Özgeçmiş (PDF CV)</span>
+            <strong class="stat-card-num" id="countCvStatus">Yok</strong>
+            <span class="stat-card-cta">+ PDF CV yükle veya değiştir →</span>
           </a>
           <a href="#inbox" class="stat-card-link" data-view="inbox">
             <span class="stat-card-label">Gelen Mesajlar (Okunmamış)</span>
@@ -980,6 +989,59 @@
             <div class="items-list" id="topQuestionsList" style="max-height: 180px; margin-bottom: 16px;"></div>
             <h3 style="font-size: 0.92rem; margin-bottom: 8px;">Son Ziyaretçi Soruları</h3>
             <div class="items-list" id="recentChatLogsList" style="max-height: 280px;"></div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- 11. ÖZEL CV / ÖZGEÇMİŞ YÖNETİM ALANI -->
+      <section class="admin-view" id="view-cv">
+        <div class="view-header">
+          <div>
+            <span class="section-tag">CV &amp; ÖZGEÇMİŞ YÖNETİMİ</span>
+            <h1>Özgeçmiş (PDF CV) Yükle, Değiştir &amp; Yayınla</h1>
+            <p class="view-desc">Buradan yüklediğin PDF dosyası anında sunucuya kaydedilir ve ana sitedeki Giriş ile Tanışalım bölümlerinde indirilebilir hale gelir.</p>
+          </div>
+        </div>
+
+        <div class="admin-grid">
+          <div class="admin-panel-card">
+            <h2>CV Dosyasını Yükle / Değiştir</h2>
+            <p class="view-desc" style="margin-bottom: 16px;">Maksimum 12 MB boyutunda <code>.pdf</code> dosyası yükleyebilir veya harici bir CV bağlantısı tanımlayabilirsin.</p>
+
+            <div class="admin-form">
+              <div class="upload-box" id="cvDropZone" style="padding: 20px; border: 1.5px dashed var(--border-hover); border-radius: var(--radius-md); text-align: center;">
+                <input type="file" id="cvMainFile" accept="application/pdf,.pdf" class="hidden" />
+                <p class="mono-sub" id="cvMainStatusLabel" style="margin-bottom: 12px;">Henüz CV yüklenmedi.</p>
+                <div class="image-btn-row" style="justify-content: center;">
+                  <button type="button" class="btn btn-primary" id="cvMainUploadBtn">+ PDF CV Seç ve Yayınla</button>
+                  <button type="button" class="btn btn-ghost remove-img-btn hidden" id="cvMainRemoveBtn">CV'yi Yayından Kaldır</button>
+                </div>
+              </div>
+
+              <label class="field">
+                <span>Veya Harici PDF / Drive Bağlantısı</span>
+                <div class="copy-row">
+                  <input type="text" id="cvMainUrlInput" placeholder="/uploads/...pdf veya https://..." />
+                  <button type="button" class="btn btn-ghost btn-sm" id="cvMainSaveUrlBtn">Bağlantıyı Kaydet</button>
+                </div>
+              </label>
+
+              <div class="field-row hidden" id="cvMainActionsRow">
+                <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm" id="cvMainOpenLink">Yeni Sekmede Aç ↗</a>
+                <a href="#" class="btn btn-ghost btn-sm" id="cvMainDownloadLink">İndirmeyi Test Et ↓</a>
+              </div>
+            </div>
+          </div>
+
+          <aside class="admin-panel-card">
+            <div class="list-header">
+              <h2>Canlı CV Önizlemesi</h2>
+              <span class="mono-sub" id="cvPreviewState">Dosya bekleniyor</span>
+            </div>
+            <div id="cvPreviewEmpty" style="padding: 40px 16px; text-align: center; border: 1px solid var(--border); border-radius: var(--radius-md);">
+              <p class="mono-sub">PDF CV yüklendiğinde önizlemesi burada görüntülenecek.</p>
+            </div>
+            <iframe id="cvPreviewFrame" class="hidden" title="CV Önizleme" style="width: 100%; height: 480px; border: 1px solid var(--border); border-radius: var(--radius-md); background: #fff;"></iframe>
           </aside>
         </div>
       </section>
