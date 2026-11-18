@@ -399,7 +399,21 @@
         <div class="chat-head-identity">
           <div class="chat-mini-avatar is-fallback" id="chatHeadAvatarWrap">
             <img id="chatHeadAvatar" src="" alt="Emir Zencircioğlu" />
-            <span class="chat-avatar-fallback" aria-hidden="true">EZ</span>
+            <svg class="chat-face-svg chat-avatar-fallback" viewBox="0 0 80 80" aria-hidden="true">
+              <defs>
+                <radialGradient id="headOrbGrad" cx="35%" cy="28%" r="72%">
+                  <stop offset="0%" stop-color="#1d4d3e" />
+                  <stop offset="55%" stop-color="#0b1f19" />
+                  <stop offset="100%" stop-color="#050b09" />
+                </radialGradient>
+              </defs>
+              <circle cx="40" cy="40" r="39" fill="url(#headOrbGrad)" />
+              <ellipse cx="28" cy="36" rx="4.5" ry="5.5" fill="#fef3c7" />
+              <ellipse cx="52" cy="36" rx="4.5" ry="5.5" fill="#fef3c7" />
+              <circle cx="29" cy="36" r="2.2" fill="#07110d" />
+              <circle cx="53" cy="36" r="2.2" fill="#07110d" />
+              <path d="M29 50 Q40 59 51 50" fill="none" stroke="#e7c667" stroke-width="3.2" stroke-linecap="round" />
+            </svg>
             <span class="chat-online-dot" aria-hidden="true"></span>
           </div>
           <div>
@@ -440,10 +454,48 @@
     </section>
 
     <button type="button" class="chat-fab" id="chatFab" aria-label="Emir AI Sohbetini Aç" aria-expanded="false">
-      <span class="chat-fab-tooltip">Emir'i sor ✨</span>
-      <span class="chat-fab-ring is-fallback" id="chatFabAvatarWrap">
-        <img id="chatFabAvatar" src="" alt="Emir Zencircioğlu Asistanı" />
-        <span class="chat-fab-fallback" aria-hidden="true">EZ</span>
+      <span class="chat-fab-aura" aria-hidden="true"></span>
+      <span class="chat-fab-tooltip" id="chatFabTooltip">Emir'i sor ✨</span>
+      <span class="chat-fab-ring" id="chatFabAvatarWrap">
+        <svg class="chat-face-svg" viewBox="0 0 100 100" aria-hidden="true">
+          <defs>
+            <radialGradient id="orbBodyGrad" cx="32%" cy="24%" r="76%">
+              <stop offset="0%" stop-color="#1e5c48" />
+              <stop offset="52%" stop-color="#0b241c" />
+              <stop offset="100%" stop-color="#040907" />
+            </radialGradient>
+            <radialGradient id="orbRimGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="68%" stop-color="rgba(212,175,55,0)" />
+              <stop offset="100%" stop-color="rgba(212,175,55,0.34)" />
+            </radialGradient>
+          </defs>
+          <!-- 3D Sphere Base & Specular Highlight -->
+          <circle cx="50" cy="50" r="49" fill="url(#orbBodyGrad)" />
+          <circle cx="50" cy="50" r="49" fill="url(#orbRimGlow)" />
+          <ellipse cx="34" cy="22" rx="18" ry="8" transform="rotate(-22 34 22)" fill="rgba(255,255,255,0.14)" />
+
+          <!-- Subtle Cheeks -->
+          <ellipse cx="24" cy="56" rx="6.5" ry="3.8" fill="rgba(231,198,103,0.22)" />
+          <ellipse cx="76" cy="56" rx="6.5" ry="3.8" fill="rgba(231,198,103,0.22)" />
+
+          <!-- Animated Blinking + Cursor-Tracking Eyes -->
+          <g class="face-eye face-eye-left">
+            <ellipse cx="35" cy="44" rx="7.5" ry="9" fill="#fdf6e3" />
+            <circle class="face-pupil" cx="35" cy="44" r="4.1" fill="#07120e" />
+            <circle class="face-glint" cx="33.2" cy="41.5" r="1.5" fill="#ffffff" />
+          </g>
+          <g class="face-eye face-eye-right">
+            <ellipse cx="65" cy="44" rx="7.5" ry="9" fill="#fdf6e3" />
+            <circle class="face-pupil" cx="65" cy="44" r="4.1" fill="#07120e" />
+            <circle class="face-glint" cx="63.2" cy="41.5" r="1.5" fill="#ffffff" />
+          </g>
+
+          <!-- Expressive Smile -->
+          <path class="face-mouth" d="M36 62 Q50 74 64 62" fill="none" stroke="#e7c667" stroke-width="4.2" stroke-linecap="round" />
+
+          <!-- Gold AI Spark -->
+          <path d="M78 16 L80 21 L85 23 L80 25 L78 30 L76 25 L71 23 L76 21 Z" fill="#e7c667" opacity="0.9" />
+        </svg>
         <span class="chat-fab-close" aria-hidden="true">✕</span>
       </span>
       <span class="chat-fab-dot" aria-hidden="true"></span>

@@ -954,10 +954,9 @@ function initChatbot(data) {
   const form = document.getElementById("chatForm");
   const input = document.getElementById("chatInput");
   const sendBtn = document.getElementById("chatSendBtn");
-  const fabAvatar = document.getElementById("chatFabAvatar");
-  const fabWrap = document.getElementById("chatFabAvatarWrap");
   const headAvatar = document.getElementById("chatHeadAvatar");
   const headWrap = document.getElementById("chatHeadAvatarWrap");
+  const tooltipEl = document.getElementById("chatFabTooltip");
 
   if (!widget || !fab || !panel || !messagesEl || !form || !input) return;
 
@@ -965,20 +964,20 @@ function initChatbot(data) {
   const firstName = (profile.name || "Emir").trim().split(/\s+/)[0];
   setText("chatBotTitle", `${firstName} AI`);
 
-  // Kullanıcının profil fotoğrafını yuvarlak yüz topuna bağla; yüklenemezse EZ monogramına düş
+  // Sohbet başlığı mini avatarı: geçerli profil görseli varsa kullan, yoksa animasyonlu yüz kalsın
   const avatarUrl = profile.avatar || "";
-  function bindAvatar(imgEl, wrapEl) {
-    if (!imgEl || !wrapEl) return;
+  if (headAvatar && headWrap) {
     if (!avatarUrl || avatarUrl.startsWith("file://")) {
-      wrapEl.classList.add("is-fallback");
-      return;
+      headWrap.classList.add("is-fallback");
+    } else {
+      headAvatar.onload = () => headWrap.classList.remove("is-fallback");
+      headAvatar.onerror = () => headWrap.classList.add("is-fallback");
+      headAvatar.src = avatarUrl;
     }
-    imgEl.onload = () => wrapEl.classList.remove("is-fallback");
-    imgEl.onerror = () => wrapEl.classList.add("is-fallback");
-    imgEl.src = avatarUrl;
   }
-  bindAvatar(fabAvatar, fabWrap);
-  bindAvatar(headAvatar, headWrap);
+
+  // Gezinen animasyonlu yüz topu (60fps GPU translate3d + fare takibi + dokununca yumuşak yavaşlama)
+  initRoamingFaceOrb(widget, fab, tooltipEl, firstName);
 
   let history = [];
   let isBusy = false;
@@ -1091,4 +1090,122 @@ function initChatbot(data) {
       setOpen(false);
     }
   });
+}
+
+function initRoamingFaceOrb(widget, fab, tooltipEl, firstName) {
+  const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const getPad = () => (window.innerWidth <= 540 ? 14 : 24);
+  const getSize = () => fab.offsetWidth || (window.innerWidth <= 540 ? 60 : 72);
+
+  let posX = window.innerWidth - getSize() - getPad();
+  let posY = window.innerHeight - getSize() - getPad();
+  let vx = -1.15;
+  let vy = -0.82;
+  let mouseX = posX;
+  let mouseY = posY;
+  let isHovering = false;
+  let phase = 0;
+
+  window.addEventListener("mousemove", (e) => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+  }, { passive: true });
+
+  fab.addEventListener("mouseenter", () => { isHovering = true; });
+  fab.addEventListener("mouseleave", () => { isHovering = false; });
+
+  // Ziyaretçinin dikkatini çekmek için periyodik konuşma balonu
+  const teasers = [
+    `Merhaba! ${firstName}'i sor ✨`,
+    "Sermaye piyasaları & finans? 💼",
+    "Projelerimi merak ediyor musun?",
+    "Bana tıklayıp soru sorabilirsin 👋",
+  ];
+  let teaserIdx = 0;
+  function showTeaserBriefly() {
+    if (widget.classList.contains("open") || !tooltipEl) return;
+    tooltipEl.textContent = teasers[teaserIdx % teasers.length];
+    teaserIdx += 1;
+    fab.classList.add("is-peeking");
+    setTimeout(() => fab.classList.remove("is-peeking"), 2800);
+  }
+  setTimeout(showTeaserBriefly, 1800);
+  setInterval(showTeaserBriefly, 7500);
+
+  function tick() {
+    const size = getSize();
+    const pad = getPad();
+    const minX = pad;
+    const maxX = Math.max(minX, window.innerWidth - size - pad);
+    const minY = Math.min(88, Math.max(16, window.innerHeight * 0.14));
+    const maxY = Math.max(minY, window.innerHeight - size - pad);
+    const isOpen = widget.classList.contains("open");
+
+    if (isOpen || prefersReduced) {
+      // Sohbet açıkken sağ alt köşedeki yuvasına yumuşakça yerleş
+      posX += (maxX - posX) * 0.18;
+      posY += (maxY - posY) * 0.18;
+      fab.style.transform = `translate3d(${posX.toFixed(1)}px, ${posY.toFixed(1)}px, 0) rotate(0deg)`;
+      fab.style.setProperty("--eye-x", "0px");
+      fab.style.setProperty("--eye-y", "0px");
+      requestAnimationFrame(tick);
+      return;
+    }
+
+    phase += 0.032;
+    const cx = posX + size / 2;
+    const cy = posY + size / 2;
+    const dist = Math.hypot(mouseX - cx, mouseY - cy);
+
+    // İmleç yaklaşınca tıklamayı kolaylaştırmak için top nazikçe yavaşlar
+    const speedFactor = isHovering ? 0.06 : dist < 130 ? 0.28 : 1;
+    const bobOffset = Math.sin(phase * 1.4) * 0.35 * speedFactor;
+
+    posX += vx * speedFactor;
+    posY += (vy * speedFactor) + bobOffset;
+
+    if (posX <= minX) {
+      posX = minX;
+      vx = Math.abs(vx);
+    } else if (posX >= maxX) {
+      posX = maxX;
+      vx = -Math.abs(vx);
+    }
+
+    if (posY <= minY) {
+      posY = minY;
+      vy = Math.abs(vy);
+    } else if (posY >= maxY) {
+      posY = maxY;
+      vy = -Math.abs(vy);
+    }
+
+    // Tooltip ekran kenarlarından taşmasın
+    if (tooltipEl) {
+      if (posY < 96) {
+        tooltipEl.style.bottom = "auto";
+        tooltipEl.style.top = "calc(100% + 10px)";
+      } else {
+        tooltipEl.style.top = "auto";
+        tooltipEl.style.bottom = "calc(100% + 12px)";
+      }
+      fab.classList.toggle("tooltip-right", posX > window.innerWidth - 220);
+      fab.classList.toggle("tooltip-left", posX < 180);
+    }
+
+    // Göz bebekleri imleci takip eder (imleç uzaktaysa gittiği yöne bakar)
+    const lookDx = dist < 420 ? (mouseX - cx) / 70 : vx * 1.8;
+    const lookDy = dist < 420 ? (mouseY - cy) / 70 : vy * 1.8;
+    const eyeX = Math.max(-2.6, Math.min(2.6, lookDx));
+    const eyeY = Math.max(-2.4, Math.min(2.4, lookDy));
+    const tiltDeg = Math.max(-10, Math.min(10, vx * 4.5 * speedFactor));
+
+    fab.style.transform = `translate3d(${posX.toFixed(1)}px, ${posY.toFixed(1)}px, 0) rotate(${tiltDeg.toFixed(2)}deg)`;
+    fab.style.setProperty("--eye-x", `${eyeX.toFixed(2)}px`);
+    fab.style.setProperty("--eye-y", `${eyeY.toFixed(2)}px`);
+
+    requestAnimationFrame(tick);
+  }
+
+  requestAnimationFrame(tick);
 }
