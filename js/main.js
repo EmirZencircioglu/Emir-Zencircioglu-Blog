@@ -1118,33 +1118,61 @@ function initChatbot(data) {
     messagesEl.appendChild(typingBubble);
     messagesEl.scrollTop = messagesEl.scrollHeight;
 
+    async function callChatOnce() {
+      const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+      const timer = controller ? setTimeout(() => controller.abort(), 24000) : null;
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: trimmed, history }),
+          signal: controller ? controller.signal : undefined,
+        });
+        const payload = await res.json().catch(() => ({}));
+        return { res, payload };
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    }
+
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: trimmed,
-          history,
-        }),
-      });
-      const payload = await res.json().catch(() => ({}));
+      let attempt;
+      try {
+        attempt = await callChatOnce();
+      } catch {
+        // Mobil ağ dalgalanması veya ilk soğuk başlangıçta tek otomatik tekrar dene
+        await new Promise((r) => setTimeout(r, 650));
+        attempt = await callChatOnce();
+      }
+
+      if ((attempt.res.status === 502 || attempt.res.status === 503) && !attempt.payload?.code) {
+        await new Promise((r) => setTimeout(r, 700));
+        attempt = await callChatOnce();
+      }
+
       typingBubble.remove();
 
-      if (!res.ok || !payload.reply) {
-        appendMessage("model", payload.error || "Şu anda yanıt oluşturulamadı. Lütfen tekrar deneyin.", true);
+      if (!attempt.res.ok || !attempt.payload?.reply) {
+        appendMessage(
+          "model",
+          attempt.payload?.error || "Şu anda yanıt oluşturulamadı. Lütfen birkaç saniye sonra tekrar deneyin.",
+          true
+        );
       } else {
-        appendMessage("model", payload.reply);
+        appendMessage("model", attempt.payload.reply);
         history.push({ role: "user", text: trimmed });
-        history.push({ role: "model", text: payload.reply });
+        history.push({ role: "model", text: attempt.payload.reply });
         if (history.length > 20) history = history.slice(-20);
       }
     } catch {
       typingBubble.remove();
-      appendMessage("model", "Sunucuya bağlanılamadı. Lütfen bağlantınızı kontrol edin.", true);
+      appendMessage("model", "Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.", true);
     } finally {
       isBusy = false;
       sendBtn.disabled = false;
-      input.focus();
+      if (!window.matchMedia("(pointer: coarse)").matches) {
+        input.focus();
+      }
     }
   }
 

@@ -32,6 +32,7 @@ import urllib.request
 import uuid
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from email.utils import parsedate_to_datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -157,6 +158,52 @@ GEMINI_MODELS = [
 ]
 _CACHED_GEMINI_MODEL: str | None = None
 _DISCOVERED_MODELS_CACHE: dict[str, object] = {"ts": 0.0, "models": []}
+_MODEL_COOLDOWN: dict[str, float] = {}
+_MODEL_STATE_LOCK = threading.Lock()
+
+
+def _is_model_cooled_down(model: str) -> bool:
+    with _MODEL_STATE_LOCK:
+        until = _MODEL_COOLDOWN.get(model, 0.0)
+        if until <= time.time():
+            _MODEL_COOLDOWN.pop(model, None)
+            return False
+        return True
+
+
+def _set_model_cooldown(model: str, seconds: float):
+    with _MODEL_STATE_LOCK:
+        _MODEL_COOLDOWN[model] = time.time() + seconds
+
+
+def _save_working_gemini_model(model: str):
+    global _CACHED_GEMINI_MODEL
+    with _MODEL_STATE_LOCK:
+        _CACHED_GEMINI_MODEL = model
+        _MODEL_COOLDOWN.pop(model, None)
+    try:
+        secret_data = load_secret()
+        if secret_data and secret_data.get("gemini_working_model") != model:
+            secret_data["gemini_working_model"] = model
+            _write_secret_file(secret_data)
+    except Exception:
+        pass
+
+
+def _get_working_gemini_model() -> str | None:
+    with _MODEL_STATE_LOCK:
+        if _CACHED_GEMINI_MODEL:
+            return _CACHED_GEMINI_MODEL
+    try:
+        secret_data = load_secret() or {}
+        saved = str(secret_data.get("gemini_working_model") or "").strip()
+        if saved:
+            with _MODEL_STATE_LOCK:
+                _CACHED_GEMINI_MODEL = saved
+            return saved
+    except Exception:
+        pass
+    return None
 
 
 def get_gemini_api_key() -> tuple[str | None, str | None]:
@@ -294,7 +341,11 @@ def _discover_gemini_models(api_key: str) -> list[str]:
         if not page_token:
             break
 
-    excluded = ("tts", "image", "embedding", "aqa", "robotics", "computer-use", "audio", "veo", "imagen", "lyria")
+    excluded = (
+        "tts", "image", "embedding", "aqa", "robotics",
+        "computer-use", "audio", "veo", "imagen", "lyria",
+        "transcribe", "nano-banana",
+    )
     candidates = []
     seen = set()
     for m in raw_models:
@@ -329,14 +380,16 @@ def _try_gemini_model(api_key: str, model: str, payload_bytes: bytes, fallback_b
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=7) as resp:
             data = json.loads(resp.read().decode("utf-8"))
         candidates = data.get("candidates") or []
         if candidates:
             parts = (candidates[0].get("content") or {}).get("parts") or []
             reply_text = "".join(str(p.get("text", "")) for p in parts).strip()
             if reply_text:
+                print(f"[Gemini success] model={model}", flush=True)
                 return reply_text, None, False
+        _set_model_cooldown(model, 45)
         return None, f"Model boş yanıt döndürdü ({model}).", True
     except urllib.error.HTTPError as e:
         err_body = ""
@@ -344,12 +397,20 @@ def _try_gemini_model(api_key: str, model: str, payload_bytes: bytes, fallback_b
             err_body = e.read().decode("utf-8", errors="ignore")
         except Exception:
             pass
-        print(f"[Gemini try {model}] HTTP {e.code}: {err_body[:260]}", flush=True)
+        print(f"[Gemini try {model}] HTTP {e.code}: {err_body[:220]}", flush=True)
         if e.code in (401, 403) or (e.code == 400 and "api key" in err_body.lower()):
             raise RuntimeError("Gemini API anahtarı geçersiz veya yetkisiz görünüyor.") from e
-        # Gemma vb. modeller developer/systemInstruction desteklemezse düz metin birleştirme ile tekrar dene
         if e.code == 400 and "developer instruction" in err_body.lower() and fallback_bytes is not None:
             return _try_gemini_model(api_key, model, fallback_bytes, None)
+        if e.code == 429:
+            _set_model_cooldown(model, 300)
+        elif e.code == 404:
+            _set_model_cooldown(model, 600)
+        elif e.code in (500, 502, 503, 504):
+            _set_model_cooldown(model, 90)
+        else:
+            _set_model_cooldown(model, 60)
+
         if e.code in (404, 429, 500, 502, 503, 504):
             detail = ""
             try:
@@ -360,6 +421,7 @@ def _try_gemini_model(api_key: str, model: str, payload_bytes: bytes, fallback_b
         return None, f"Gemini API hatası ({e.code}, {model}): {err_body[:160]}", True
     except Exception as e:
         print(f"[Gemini try {model}] Exception: {e}", flush=True)
+        _set_model_cooldown(model, 90)
         return None, f"Bağlantı hatası ({model}): {e}", True
 
 
@@ -388,7 +450,6 @@ def call_gemini_api(api_key: str, system_prompt: str, history: list, user_messag
         ensure_ascii=False,
     ).encode("utf-8")
 
-    # systemInstruction desteklemeyen modeller için yedek gövde
     fallback_contents = [
         {"role": "user", "parts": [{"text": f"[SİSTEM TALİMATI]\n{system_prompt}\n\n[SORU]\n{contents[0]['parts'][0]['text']}"}]},
         *contents[1:],
@@ -401,35 +462,62 @@ def call_gemini_api(api_key: str, system_prompt: str, history: list, user_messag
         ensure_ascii=False,
     ).encode("utf-8")
 
-    # Önce önbellekteki çalışan modeli, ardından API'den keşfedilen tüm aktif modelleri (Gemini 4, 3, vb.) dene
-    ordered_models = []
-    if _CACHED_GEMINI_MODEL:
-        ordered_models.append(_CACHED_GEMINI_MODEL)
-    discovered = _discover_gemini_models(api_key)
-    ordered_models.extend(discovered)
-    if not discovered:
-        ordered_models.extend(GEMINI_MODELS)
-
-    tried = set()
     last_error = "Gemini servisine bağlanılamadı."
     start_ts = time.monotonic()
 
-    for model in ordered_models:
-        if not model or model in tried:
-            continue
-        if time.monotonic() - start_ts > 26:
-            break
-        tried.add(model)
-        reply_text, err_msg, _ = _try_gemini_model(api_key, model, payload_bytes, fallback_bytes)
+    # 1. Önce bilinen çalışan modeli doğrudan dene (~1 sn)
+    cached_model = _get_working_gemini_model()
+    if cached_model and not _is_model_cooled_down(cached_model):
+        reply_text, err_msg, _ = _try_gemini_model(api_key, cached_model, payload_bytes, fallback_bytes)
         if reply_text:
-            _CACHED_GEMINI_MODEL = model
+            _save_working_gemini_model(cached_model)
             return reply_text
-        if model == _CACHED_GEMINI_MODEL:
-            _CACHED_GEMINI_MODEL = None
         if err_msg:
             last_error = err_msg
+        with _MODEL_STATE_LOCK:
+            if _CACHED_GEMINI_MODEL == cached_model:
+                _CACHED_GEMINI_MODEL = None
 
-    raise RuntimeError(f"Tüm Gemini modelleri şu anda yoğun veya erişilemiyor. Son yanıt: {last_error}")
+    # 2. Aktif tüm modelleri çek ve bekleme süresi dolmamışları paralel 4'lü dalgalar halinde dene
+    discovered = _discover_gemini_models(api_key)
+    pool = discovered if discovered else list(GEMINI_MODELS)
+    active_pool = [m for m in pool if m and m != cached_model and not _is_model_cooled_down(m)]
+    if not active_pool:
+        # Hepsi geçici soğumadaysa baştan en güncel birkaç adayı tekrar dene
+        active_pool = [m for m in pool if m and m != cached_model][:8]
+
+    for i in range(0, len(active_pool), 4):
+        if time.monotonic() - start_ts > 18:
+            break
+        batch = active_pool[i:i + 4]
+        executor = ThreadPoolExecutor(max_workers=len(batch))
+        try:
+            futures = {
+                executor.submit(_try_gemini_model, api_key, m, payload_bytes, fallback_bytes): m
+                for m in batch
+            }
+            pending = set(futures.keys())
+            while pending:
+                done, pending = wait(pending, return_when=FIRST_COMPLETED, timeout=8)
+                if not done:
+                    break
+                for fut in done:
+                    model_name = futures[fut]
+                    try:
+                        reply_text, err_msg, _ = fut.result()
+                    except RuntimeError:
+                        raise
+                    except Exception as e:
+                        reply_text, err_msg = None, str(e)
+                    if reply_text:
+                        _save_working_gemini_model(model_name)
+                        return reply_text
+                    if err_msg:
+                        last_error = err_msg
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
+
+    raise RuntimeError(f"Tüm Gemini modelleri şu anda yoğun. Lütfen birkaç saniye sonra tekrar deneyin. ({last_error})")
 
 
 TR_MONTHS = [
@@ -786,6 +874,14 @@ class BlogHandler(BaseHTTPRequestHandler):
         # Temiz konsol çıktısı
         sys.stderr.write(f"[{self.log_date_time_string()}] {format % args}\n")
 
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Max-Age", "86400")
+        self.end_headers()
+
     def _send_json(self, status: int, data: dict, extra_headers: dict | None = None):
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
@@ -793,6 +889,9 @@ class BlogHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
+        req_path = urlparse(self.path).path
+        if req_path in ("/api/chat", "/api/chat/status", "/api/content"):
+            self.send_header("Access-Control-Allow-Origin", "*")
         if extra_headers:
             for k, v in extra_headers.items():
                 self.send_header(k, v)
