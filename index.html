@@ -3,27 +3,35 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Emir Zencircioğlu — Kişisel Blog & Portfolyo</title>
-  <meta name="description" content="Projelerim, fikirlerim, Instagram, LinkedIn, GitHub, YouTube paylaşımlarım ve katıldığım etkinliklerden kareler." />
+  <title>Emir Zencircioğlu — Geliştirici, Üretici & Konuşmacı</title>
+  <meta name="description" content="Yazılım projelerim, fikirlerim, katıldığım kurumlar ve zirveler, GitHub, LinkedIn, Instagram ve YouTube paylaşımlarım." />
 
-  <!-- Google Fonts -->
+  <!-- Google Fonts: Syne (Architectural Display) + Plus Jakarta Sans + Instrument Serif + JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Syne:wght@600;700&display=swap" rel="stylesheet" />
 
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
+  <!-- Quick Architectural Intro Curtain -->
+  <div class="intro-curtain" id="introCurtain" aria-hidden="true">
+    <div class="curtain-inner">
+      <span class="curtain-dot"></span>
+      <span class="curtain-name" id="curtainName">emir zencircioğlu</span>
+    </div>
+  </div>
+
   <!-- Scroll Progress Bar -->
   <div class="scroll-progress" id="scrollProgress"></div>
 
-  <!-- Custom Magnetic Cursor (Desktop) -->
+  <!-- Custom Contextual Cursor (Desktop) -->
   <div class="cursor-dot" id="cursorDot"></div>
   <div class="cursor-ring" id="cursorRing">
     <span class="cursor-label" id="cursorLabel"></span>
   </div>
 
-  <!-- Ambient Background + Interactive Spotlight + Tactile Grain -->
+  <!-- Architectural Ambient Canvas -->
   <div class="ambient-bg" aria-hidden="true">
     <div class="ambient-orb orb-1" id="orb1"></div>
     <div class="ambient-orb orb-2" id="orb2"></div>
@@ -33,24 +41,25 @@
     <div class="noise-overlay"></div>
   </div>
 
-  <!-- Floating Glass Navigation -->
+  <!-- Floating Glass Dock Navbar -->
   <header class="navbar" id="navbar">
     <div class="nav-inner">
       <a href="#hero" class="nav-logo magnetic" data-magnetic="0.2">
         <span class="logo-dot"></span>
-        <span class="logo-text" id="navBrandName">seninadın.</span>
+        <span class="logo-text" id="navBrandName">emir.</span>
       </a>
 
       <nav class="nav-links" id="navLinks" aria-label="Ana Menü">
         <span class="nav-indicator" id="navIndicator" aria-hidden="true"></span>
         <a href="#about" class="nav-link" data-section="about">Hakkımda</a>
-        <a href="#social" class="nav-link" data-section="social">Sosyal Akış</a>
         <a href="#projects" class="nav-link" data-section="projects">Projeler</a>
-        <a href="#ideas" class="nav-link" data-section="ideas">Fikirler & Blog</a>
-        <a href="#events" class="nav-link" data-section="events">Etkinlikler</a>
+        <a href="#events" class="nav-link" data-section="events">Zirve & Kurumlar</a>
+        <a href="#ideas" class="nav-link" data-section="ideas">Fikirler</a>
+        <a href="#social" class="nav-link" data-section="social">Sosyal Akış</a>
       </nav>
 
       <div class="nav-actions">
+        <a href="#contact" class="nav-cta magnetic" data-magnetic="0.18">İletişim ↗</a>
         <button class="theme-toggle magnetic" id="themeToggle" aria-label="Tema Değiştir" data-magnetic="0.25">
           <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <circle cx="12" cy="12" r="4"></circle>
@@ -73,55 +82,59 @@
   <div class="mobile-drawer" id="mobileDrawer">
     <nav class="mobile-nav">
       <a href="#about" class="mobile-link">Hakkımda</a>
-      <a href="#social" class="mobile-link">Sosyal Akış</a>
       <a href="#projects" class="mobile-link">Projeler</a>
-      <a href="#ideas" class="mobile-link">Fikirler & Blog</a>
-      <a href="#events" class="mobile-link">Etkinlikler</a>
+      <a href="#events" class="mobile-link">Zirve & Kurumlar</a>
+      <a href="#ideas" class="mobile-link">Fikirler</a>
+      <a href="#social" class="mobile-link">Sosyal Akış</a>
       <a href="#contact" class="mobile-link">İletişim</a>
     </nav>
   </div>
 
   <main>
-    <!-- HERO SECTION -->
+    <!-- HERO: EXECUTIVE & CURIOSITY SHOWCASE -->
     <section class="hero" id="hero">
       <div class="container hero-grid">
         <div class="hero-content">
-          <div class="hero-badge reveal-hero" style="--delay: 0.05s">
-            <span class="pulse-dot"></span>
+          <div class="hero-eyebrow reveal-hero" style="--delay: 0.1s">
+            <span class="pulse-dot green"></span>
             <span id="heroStatus">Yeni projeler, fikirler & zirve notları yayında</span>
           </div>
 
           <h1 class="hero-title">
-            <span class="line-mask"><span class="line-inner reveal-hero" style="--delay: 0.14s">Üretiyorum,</span></span>
-            <span class="line-mask"><span class="line-inner reveal-hero" style="--delay: 0.24s">keşfediyorum ve <em class="serif-italic gradient-serif">paylaşıyorum.</em></span></span>
+            <span class="line-mask"><span class="line-inner reveal-hero" style="--delay: 0.18s">Kod, ürün ve</span></span>
+            <span class="line-mask"><span class="line-inner reveal-hero" style="--delay: 0.28s">toplulukla <em class="serif-italic gradient-serif">iz bırakıyorum.</em></span></span>
           </h1>
 
-          <p class="hero-subtitle reveal-hero" style="--delay: 0.36s" id="heroSubtitle">
-            Yazılım projelerim, teknoloji üzerine fikirlerim, Instagram, LinkedIn, GitHub ve YouTube paylaşımlarım ile katıldığım kurum, şirket ve zirvelerden kareler — hepsi tek bir akıcı dijital alanda.
+          <div class="hero-ticker-row reveal-hero" style="--delay: 0.36s">
+            <span class="mono-sub">ODAK:</span>
+            <span class="hero-ticker" id="heroTicker">Yazılım Geliştirme & Mimari</span>
+          </div>
+
+          <p class="hero-subtitle reveal-hero" style="--delay: 0.44s" id="heroSubtitle">
+            Geliştirdiğim projeleri, teknoloji ve ürün üzerine fikirlerimi, ziyaret ettiğim kurum ve zirveleri ve tüm sosyal medya üretimlerimi şeffaf biçimde paylaştığım kişisel dijital vitrinim.
           </p>
 
-          <div class="hero-cta reveal-hero" style="--delay: 0.46s">
-            <a href="#social" class="btn btn-primary magnetic" data-magnetic="0.2">
-              <span>Akışı Keşfet</span>
+          <div class="hero-cta reveal-hero" style="--delay: 0.52s">
+            <a href="#projects" class="btn btn-primary magnetic" data-magnetic="0.2">
+              <span>Projelerimi İncele</span>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M5 12h14M12 5l7 7-7 7"></path>
               </svg>
             </a>
-            <a href="#events" class="btn btn-ghost magnetic" data-magnetic="0.2">
-              <span>Etkinlik Galerisi</span>
+            <a href="#contact" class="btn btn-ghost magnetic" data-magnetic="0.2">
+              <span>Hızlı İletişim</span>
             </a>
           </div>
 
-          <!-- Quick Platform Pills -->
-          <div class="hero-platforms reveal-hero" style="--delay: 0.56s">
-            <a href="#social" data-jump-platform="instagram" class="platform-pill magnetic" data-magnetic="0.15">
-              <span class="p-dot ig"></span> Instagram
-            </a>
+          <div class="hero-platforms reveal-hero" style="--delay: 0.6s">
             <a href="#social" data-jump-platform="linkedin" class="platform-pill magnetic" data-magnetic="0.15">
               <span class="p-dot li"></span> LinkedIn
             </a>
             <a href="#social" data-jump-platform="github" class="platform-pill magnetic" data-magnetic="0.15">
               <span class="p-dot gh"></span> GitHub
+            </a>
+            <a href="#social" data-jump-platform="instagram" class="platform-pill magnetic" data-magnetic="0.15">
+              <span class="p-dot ig"></span> Instagram
             </a>
             <a href="#social" data-jump-platform="youtube" class="platform-pill magnetic" data-magnetic="0.15">
               <span class="p-dot yt"></span> YouTube
@@ -129,60 +142,79 @@
           </div>
         </div>
 
-        <!-- Interactive 3D Hero Stage Card -->
-        <aside class="hero-stage reveal-hero" style="--delay: 0.38s">
-          <div class="hero-stage-card tilt-card" data-tilt="7">
+        <!-- Interactive 3D Executive Dossier Card -->
+        <aside class="hero-stage reveal-hero" style="--delay: 0.42s">
+          <div class="dossier-card tilt-card" data-tilt="6">
             <div class="stage-glow"></div>
-            <div class="stage-top">
+
+            <div class="dossier-head">
               <div class="stage-identity">
                 <div class="avatar-ring stage-avatar">
                   <img id="heroAvatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80" alt="Profil" />
                 </div>
                 <div>
-                  <strong id="heroName">Adın Soyadın</strong>
-                  <span class="mono-sub" id="heroRole">Geliştirici · İçerik Üreticisi</span>
+                  <strong id="heroName">Emir Zencircioğlu</strong>
+                  <span class="mono-sub" id="heroRole">Yazılım Geliştirici · Üretici</span>
                 </div>
               </div>
-              <span class="stage-live-badge"><span class="pulse-dot green"></span> Aktif</span>
+              <span class="stage-live-badge"><span class="pulse-dot green"></span> Açık</span>
             </div>
 
-            <div class="stage-divider"></div>
-
-            <div class="stage-metrics">
-              <div class="stage-metric-box">
-                <span class="mono-sub">PROJE</span>
-                <strong id="heroProjCount">0</strong>
-              </div>
-              <div class="stage-metric-box">
-                <span class="mono-sub">PAYLAŞIM</span>
-                <strong id="heroSocialCount">0</strong>
-              </div>
-              <div class="stage-metric-box">
-                <span class="mono-sub">ETKİNLİK</span>
-                <strong id="heroEventCount">0</strong>
-              </div>
+            <!-- Interactive Dossier Switcher -->
+            <div class="dossier-tabs" id="dossierTabs" role="tablist">
+              <button type="button" class="dossier-tab active" data-dtab="summary">Özet</button>
+              <button type="button" class="dossier-tab" data-dtab="focus">Şu An</button>
+              <button type="button" class="dossier-tab" data-dtab="latest">Son Akış</button>
             </div>
 
-            <div class="stage-latest" id="heroLatestWrap">
-              <span class="mono-sub">SON GÜNCELLEME</span>
-              <p id="heroLatestPost">Yeni içerikler & zirve notları yükleniyor...</p>
+            <div class="dossier-panes">
+              <div class="dossier-pane active" data-dpane="summary">
+                <div class="stage-metrics">
+                  <div class="stage-metric-box">
+                    <span class="mono-sub">PROJE</span>
+                    <strong id="heroProjCount">0</strong>
+                  </div>
+                  <div class="stage-metric-box">
+                    <span class="mono-sub">ZİRVE / KURUM</span>
+                    <strong id="heroEventCount">0</strong>
+                  </div>
+                  <div class="stage-metric-box">
+                    <span class="mono-sub">PAYLAŞIM</span>
+                    <strong id="heroSocialCount">0</strong>
+                  </div>
+                </div>
+                <div class="dossier-tags" id="heroTags"></div>
+              </div>
+
+              <div class="dossier-pane" data-dpane="focus">
+                <ul class="dossier-now-list" id="heroNowList"></ul>
+              </div>
+
+              <div class="dossier-pane" data-dpane="latest">
+                <div class="dossier-latest-box">
+                  <span class="mono-sub">SON PAYLAŞIM</span>
+                  <h4 id="heroLatestPost">Yükleniyor...</h4>
+                  <p id="heroLatestExcerpt"></p>
+                  <a href="#social" class="dossier-jump">Akışa Git →</a>
+                </div>
+              </div>
             </div>
           </div>
         </aside>
       </div>
 
-      <div class="scroll-indicator reveal-hero" style="--delay: 0.75s">
-        <span>Keşfet</span>
+      <div class="scroll-indicator reveal-hero" style="--delay: 0.78s">
+        <span>Aşağı Kaydır</span>
         <div class="scroll-line"></div>
       </div>
     </section>
 
-    <!-- ABOUT & BENTO STATS + MARQUEE -->
+    <!-- 01 / ABOUT & DUAL MARQUEE -->
     <section class="section about-section" id="about">
       <div class="container">
         <div class="section-header reveal-up">
-          <span class="section-tag">01 / HAKKIMDA</span>
-          <h2 class="section-title">Ben Kimim & <em class="serif-italic">Neler Yapıyorum?</em></h2>
+          <span class="section-tag">01 / PROFİL & VİZYON</span>
+          <h2 class="section-title">Nasıl Düşünür, <em class="serif-italic">Neler Üretirim?</em></h2>
         </div>
 
         <div class="about-bento">
@@ -197,52 +229,104 @@
               </div>
             </div>
             <p class="bio-text" id="profileBio">
-              Merhaba! Teknoloji, yazılım mimarisi ve ürün geliştirme alanlarında üretmeyi seven biriyim. Öğrendiklerimi yalnızca kodda bırakmayıp YouTube videolarında, LinkedIn yazılarında ve katıldığım teknoloji zirvelerinde toplulukla paylaşıyorum.
+              Merhaba! Teknoloji, yazılım mimarisi ve ürün geliştirme alanlarında üretmeyi seven biriyim.
             </p>
             <div class="bio-tags" id="profileInterests"></div>
           </div>
 
           <div class="bento-card bento-stat tilt-card reveal-up" data-tilt="5" style="--delay: 0.12s">
             <span class="stat-label">Toplam Proje</span>
-            <span class="stat-number" id="statProjCount" data-count="24">0</span>
-            <span class="stat-desc">Açık kaynak & ürün</span>
+            <span class="stat-number" id="statProjCount" data-count="3">0</span>
+            <span class="stat-desc">Üretilen ürün & açık kaynak</span>
           </div>
 
           <div class="bento-card bento-stat tilt-card reveal-up" data-tilt="5" style="--delay: 0.18s">
             <span class="stat-label">Etkinlik & Zirve</span>
-            <span class="stat-number" id="statEventCount" data-count="18">0</span>
-            <span class="stat-desc">Konuşma & ziyaret</span>
+            <span class="stat-number" id="statEventCount" data-count="6">0</span>
+            <span class="stat-desc">Kurum, şirket & zirve</span>
           </div>
 
           <div class="bento-card bento-now tilt-card reveal-up" data-tilt="3" style="--delay: 0.24s">
             <div class="now-header">
               <span class="pulse-dot green"></span>
-              <span class="mono-sub">ŞU AN NE YAPIYORUM?</span>
+              <span class="mono-sub">ŞU AN MASAMDA NE VAR?</span>
             </div>
             <ul class="now-list" id="nowList"></ul>
           </div>
         </div>
 
-        <!-- Visited Institutions & Companies Marquee -->
+        <!-- Dual-Row Kinetic Marquee -->
         <div class="marquee-wrapper reveal-up" style="--delay: 0.2s">
-          <p class="marquee-label">Ziyaret Ettiğim & Buluştuğum Kurumlar, Şirketler ve Topluluklar</p>
+          <p class="marquee-label">Ziyaret Ettiğim & Etkileşimde Olduğum Kurumlar, Şirketler ve Zirveler</p>
           <div class="marquee">
             <div class="marquee-track" id="marqueeTrack"></div>
+          </div>
+          <div class="marquee marquee-reverse">
+            <div class="marquee-track track-reverse" id="marqueeTrackReverse"></div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- SOCIAL MEDIA UNIFIED FEED -->
+    <!-- 02 / PROJECTS (PRIORITY FOR EMPLOYERS & TECH TEAMS) -->
+    <section class="section projects-section" id="projects">
+      <div class="container">
+        <div class="section-header-row reveal-up">
+          <div>
+            <span class="section-tag">02 / SEÇKİN PROJELER</span>
+            <h2 class="section-title">Fikirden Ürüne <em class="serif-italic">Çalışmalarım</em></h2>
+          </div>
+          <span class="mono-sub">MİMARİ · KOD · ÜRÜN</span>
+        </div>
+
+        <div class="projects-grid" id="projectsGrid"></div>
+      </div>
+    </section>
+
+    <!-- 03 / EVENTS, SUMMITS & INSTITUTION VISITS -->
+    <section class="section events-section" id="events">
+      <div class="container">
+        <div class="section-header-row reveal-up">
+          <div>
+            <span class="section-tag">03 / SAHA & ZİRVELER</span>
+            <h2 class="section-title">Kurumlar, Şirketler & <em class="serif-italic">Etkinlikler</em></h2>
+          </div>
+          <div class="filter-bar" id="eventFilters">
+            <span class="filter-pill-bg" aria-hidden="true"></span>
+            <button class="filter-btn active" data-event-filter="all">Tümü</button>
+            <button class="filter-btn" data-event-filter="zirve">Zirve</button>
+            <button class="filter-btn" data-event-filter="sirket">Şirket & Kurum</button>
+            <button class="filter-btn" data-event-filter="etkinlik">Topluluk</button>
+          </div>
+        </div>
+
+        <div class="events-grid" id="eventsGrid"></div>
+      </div>
+    </section>
+
+    <!-- 04 / BLOG & IDEAS -->
+    <section class="section ideas-section" id="ideas">
+      <div class="container">
+        <div class="section-header reveal-up">
+          <span class="section-tag">04 / FİKİRLER & YAZILAR</span>
+          <h2 class="section-title">Düşünceler, Notlar & <em class="serif-italic">Makaleler</em></h2>
+        </div>
+
+        <div class="ideas-list" id="ideasList"></div>
+      </div>
+    </section>
+
+    <!-- 05 / UNIFIED SOCIAL FEED -->
     <section class="section social-section" id="social">
       <div class="container">
         <div class="section-header-row reveal-up">
           <div>
-            <span class="section-tag">02 / SOSYAL AKIŞ</span>
-            <h2 class="section-title">Tüm Platformlardan <em class="serif-italic">Paylaşımlarım</em></h2>
+            <span class="section-tag">05 / CANLI SOSYAL AKIŞ</span>
+            <h2 class="section-title">Tüm Platformlardan <em class="serif-italic">Üretimlerim</em></h2>
           </div>
 
           <div class="filter-bar" role="tablist" aria-label="Platform Filtresi" id="socialFilters">
+            <span class="filter-pill-bg" aria-hidden="true"></span>
             <button class="filter-btn active" data-filter="all">Tümü</button>
             <button class="filter-btn" data-filter="instagram">Instagram</button>
             <button class="filter-btn" data-filter="linkedin">LinkedIn</button>
@@ -255,75 +339,36 @@
       </div>
     </section>
 
-    <!-- PROJECTS SECTION -->
-    <section class="section projects-section" id="projects">
-      <div class="container">
-        <div class="section-header reveal-up">
-          <span class="section-tag">03 / PROJELER</span>
-          <h2 class="section-title">Üzerinde Çalıştığım <em class="serif-italic">Projeler</em></h2>
-        </div>
-
-        <div class="projects-grid" id="projectsGrid"></div>
-      </div>
-    </section>
-
-    <!-- BLOG & IDEAS SECTION -->
-    <section class="section ideas-section" id="ideas">
-      <div class="container">
-        <div class="section-header reveal-up">
-          <span class="section-tag">04 / BLOG & FİKİRLER</span>
-          <h2 class="section-title">Düşünceler, Notlar & <em class="serif-italic">Makaleler</em></h2>
-        </div>
-
-        <div class="ideas-list" id="ideasList"></div>
-      </div>
-    </section>
-
-    <!-- EVENTS, SUMMITS & PHOTO GALLERY -->
-    <section class="section events-section" id="events">
-      <div class="container">
-        <div class="section-header-row reveal-up">
-          <div>
-            <span class="section-tag">05 / NERELERE GİTTİM?</span>
-            <h2 class="section-title">Etkinlikler, Zirveler & <em class="serif-italic">Kareler</em></h2>
-          </div>
-          <div class="filter-bar" id="eventFilters">
-            <button class="filter-btn active" data-event-filter="all">Tümü</button>
-            <button class="filter-btn" data-event-filter="zirve">Zirve</button>
-            <button class="filter-btn" data-event-filter="sirket">Şirket & Kurum</button>
-            <button class="filter-btn" data-event-filter="etkinlik">Topluluk</button>
-          </div>
-        </div>
-
-        <div class="events-grid" id="eventsGrid"></div>
-      </div>
-    </section>
-
-    <!-- CONTACT / FOOTER -->
+    <!-- 06 / CONTACT / EXECUTIVE CTA FOOTER -->
     <footer class="footer" id="contact">
       <div class="container">
         <div class="footer-card reveal-up">
-          <span class="section-tag">06 / İLETİŞİM</span>
-          <h2 class="footer-title">Birlikte bir şeyler <em class="serif-italic gradient-serif">üretelim mi?</em></h2>
+          <span class="section-tag">06 / TANIŞALIM</span>
+          <h2 class="footer-title">Ekibinizde veya projenizde <em class="serif-italic gradient-serif">değer üretelim mi?</em></h2>
           <p class="footer-desc">
-            Yeni bir proje, etkinlik daveti ya da sadece kahve eşliğinde fikir alışverişi için bana her zaman ulaşabilirsin.
+            Yeni roller, teknik iş birlikleri, etkinlik davetleri veya tanışma kahvesi için tek tıkla ulaşabilirsin.
           </p>
 
           <div class="footer-actions">
-            <button class="btn btn-primary magnetic" id="copyEmailBtn" data-magnetic="0.2">
-              <span id="emailText">merhaba@seninadin.com</span>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="9" y="9" width="13" height="13" rx="2"></rect>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-              </svg>
-            </button>
+            <div class="footer-cta-row">
+              <button class="btn btn-primary magnetic" id="copyEmailBtn" data-magnetic="0.2">
+                <span id="emailText">merhaba@seninadin.com</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+              </button>
+              <a href="mailto:merhaba@seninadin.com" id="mailtoBtn" class="btn btn-ghost magnetic" data-magnetic="0.2">
+                E-posta Gönder ↗
+              </a>
+            </div>
 
             <div class="footer-socials" id="footerSocials"></div>
           </div>
         </div>
 
         <div class="footer-bottom">
-          <p>© <span id="currentYear"></span> <span id="footerName">Adın Soyadın</span>. Özenle ve akıcı hareketle tasarlandı.</p>
+          <p>© <span id="currentYear"></span> <span id="footerName">Emir Zencircioğlu</span>. Özgün mimari ve akıcı hareketle tasarlandı.</p>
           <a href="#hero" class="back-to-top magnetic" data-magnetic="0.25" aria-label="Yukarı Çık">
             Yukarı ↑
           </a>

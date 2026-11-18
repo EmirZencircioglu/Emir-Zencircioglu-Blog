@@ -1,9 +1,10 @@
 /**
- * KİŞİSEL BLOG & PORTFOLYO — ÜST DÜZEY ANİMASYON & ETKİLEŞİM MOTORU
+ * KİŞİSEL BLOG & PORTFOLYO — YENİ NESİL ANİMASYON & ETKİLEŞİM MOTORU
  */
 
 document.addEventListener("DOMContentLoaded", async () => {
   initTheme();
+  initIntroCurtain();
 
   let data = window.BLOG_DATA;
   if (window.location.protocol !== "file:") {
@@ -18,12 +19,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   hydrateProfile(data);
   renderMarquee(data.institutions || []);
-  renderSocialFeed(data.socialPosts || [], "all");
   renderProjects(data.projects || []);
-  renderIdeas(data.ideas || []);
   renderEvents(data.events || [], "all");
+  renderIdeas(data.ideas || []);
+  renderSocialFeed(data.socialPosts || [], "all");
   renderFooterSocials(data.profile?.socialLinks || []);
 
+  initDossierTabs();
+  initHeroTicker(data.profile?.interests || []);
   initScrollEffects();
   initNavIndicator();
   initRevealObserver();
@@ -37,6 +40,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   initMobileMenu();
   initCopyEmail(data.profile?.email || "");
 });
+
+/* ==========================================================================
+   ARCHITECTURAL INTRO CURTAIN
+   ========================================================================== */
+function initIntroCurtain() {
+  const curtain = document.getElementById("introCurtain");
+  if (!curtain) return;
+  setTimeout(() => {
+    curtain.classList.add("done");
+  }, 550);
+}
 
 /* ==========================================================================
    THEME TOGGLE
@@ -56,11 +70,12 @@ function initTheme() {
 }
 
 /* ==========================================================================
-   PROFILE & HERO STAGE HYDRATION
+   PROFILE & EXECUTIVE DOSSIER HYDRATION
    ========================================================================== */
 function hydrateProfile(data) {
   const profile = data.profile || {};
   setText("navBrandName", profile.brandName);
+  setText("curtainName", (profile.name || "emir.").toLowerCase());
   setText("heroStatus", profile.status);
   setText("profileName", profile.name);
   setText("profileRole", profile.role);
@@ -69,17 +84,35 @@ function hydrateProfile(data) {
   setText("footerName", profile.name);
   setText("currentYear", new Date().getFullYear());
 
-  // Hero Stage Card
+  const mailtoBtn = document.getElementById("mailtoBtn");
+  if (mailtoBtn && profile.email) mailtoBtn.href = `mailto:${profile.email}`;
+
+  // Dossier Card
   setText("heroName", profile.name);
   setText("heroRole", profile.role);
   setText("heroProjCount", (data.projects || []).length);
-  setText("heroSocialCount", (data.socialPosts || []).length);
   setText("heroEventCount", (data.events || []).length);
+  setText("heroSocialCount", (data.socialPosts || []).length);
 
   const latestSocial = (data.socialPosts || [])[0];
   const latestIdea = (data.ideas || [])[0];
-  const latestTitle = latestSocial?.title || latestIdea?.title || profile.status;
-  setText("heroLatestPost", latestTitle);
+  setText("heroLatestPost", latestSocial?.title || latestIdea?.title || profile.status);
+  setText("heroLatestExcerpt", latestSocial?.excerpt || latestIdea?.summary || "");
+
+  const heroTags = document.getElementById("heroTags");
+  if (heroTags && profile.interests) {
+    heroTags.innerHTML = profile.interests
+      .slice(0, 4)
+      .map((tag) => `<span class="tag-chip">${escapeHtml(tag)}</span>`)
+      .join("");
+  }
+
+  const heroNowList = document.getElementById("heroNowList");
+  if (heroNowList && profile.now) {
+    heroNowList.innerHTML = profile.now
+      .map((item) => `<li>${escapeHtml(item)}</li>`)
+      .join("");
+  }
 
   const statProj = document.getElementById("statProjCount");
   if (statProj && data.projects) statProj.dataset.count = String(data.projects.length);
@@ -106,12 +139,159 @@ function hydrateProfile(data) {
   }
 }
 
+function initDossierTabs() {
+  const tabsWrap = document.getElementById("dossierTabs");
+  if (!tabsWrap) return;
+  tabsWrap.addEventListener("click", (e) => {
+    const btn = e.target.closest(".dossier-tab");
+    if (!btn) return;
+    const target = btn.dataset.dtab;
+    tabsWrap.querySelectorAll(".dossier-tab").forEach((t) => t.classList.remove("active"));
+    btn.classList.add("active");
+    document.querySelectorAll(".dossier-pane").forEach((p) => {
+      p.classList.toggle("active", p.dataset.dpane === target);
+    });
+  });
+}
+
+function initHeroTicker(interests) {
+  const el = document.getElementById("heroTicker");
+  if (!el) return;
+  const items = interests && interests.length ? interests : ["Yazılım Mimarisi", "Ürün Geliştirme", "Topluluk & Zirveler"];
+  let idx = 0;
+  el.textContent = items[0];
+  if (items.length < 2) return;
+
+  setInterval(() => {
+    el.classList.add("switching");
+    setTimeout(() => {
+      idx = (idx + 1) % items.length;
+      el.textContent = items[idx];
+      el.classList.remove("switching");
+    }, 320);
+  }, 3000);
+}
+
 function renderMarquee(items) {
   const track = document.getElementById("marqueeTrack");
-  if (!track) return;
+  const trackRev = document.getElementById("marqueeTrackReverse");
+  if (!items.length) return;
   const doubled = [...items, ...items];
-  track.innerHTML = doubled
-    .map((name) => `<span class="marquee-item">${escapeHtml(name)}</span>`)
+  const html = doubled.map((name) => `<span class="marquee-item">${escapeHtml(name)}</span>`).join("");
+  if (track) track.innerHTML = html;
+  if (trackRev) {
+    const reversedDoubled = [...items].reverse().concat([...items].reverse());
+    trackRev.innerHTML = reversedDoubled
+      .map((name) => `<span class="marquee-item">${escapeHtml(name)}</span>`)
+      .join("");
+  }
+}
+
+/* ==========================================================================
+   PROJECTS RENDERING (NUMBERED ARCHITECTURAL CARDS)
+   ========================================================================== */
+function renderProjects(projects) {
+  const grid = document.getElementById("projectsGrid");
+  if (!grid) return;
+
+  grid.innerHTML = projects
+    .map((proj, idx) => {
+      const num = String(idx + 1).padStart(2, "0");
+      return `
+      <article class="project-card tilt-card reveal-up" data-tilt="4" data-cursor="Aç" style="--delay: ${idx * 0.08}s">
+        <span class="project-index" aria-hidden="true">${num}</span>
+        <div>
+          <div class="project-top">
+            <span class="project-year">${escapeHtml(proj.year)}</span>
+            <span class="project-status">${escapeHtml(proj.status)}</span>
+          </div>
+          <h3 class="project-title" style="margin-top: 16px;">${escapeHtml(proj.title)}</h3>
+          <p class="project-desc">${escapeHtml(proj.description)}</p>
+        </div>
+        <div>
+          <div class="project-stack" style="margin-bottom: 18px;">
+            ${(proj.stack || []).map((tech) => `<span class="tag-chip">${escapeHtml(tech)}</span>`).join("")}
+          </div>
+          <div class="project-links">
+            ${proj.githubUrl && proj.githubUrl !== "#" ? `<a href="${escapeHtml(proj.githubUrl)}" target="_blank" rel="noopener noreferrer">GitHub ↗</a>` : ""}
+            ${proj.liveUrl && proj.liveUrl !== "#" ? `<a href="${escapeHtml(proj.liveUrl)}" target="_blank" rel="noopener noreferrer">Canlı Önizleme ↗</a>` : ""}
+          </div>
+        </div>
+      </article>
+    `;
+    })
+    .join("");
+}
+
+/* ==========================================================================
+   EVENTS & SUMMITS GALLERY
+   ========================================================================== */
+let currentVisibleEvents = [];
+
+function renderEvents(events, filter) {
+  const grid = document.getElementById("eventsGrid");
+  if (!grid) return;
+
+  currentVisibleEvents = filter === "all" ? events : events.filter((e) => e.category === filter);
+
+  grid.innerHTML = currentVisibleEvents
+    .map((ev, idx) => {
+      const hasImage = Boolean(ev.image);
+      if (hasImage) {
+        return `
+          <article class="event-card tilt-card has-image" data-tilt="4" data-cursor="Gör" data-event-index="${idx}" style="animation-delay: ${idx * 0.06}s">
+            <img src="${escapeHtml(ev.image)}" alt="${escapeHtml(ev.title)}" loading="lazy" />
+            <div class="event-overlay">
+              <span class="event-place">${escapeHtml(ev.place)} · ${escapeHtml(ev.categoryLabel)}</span>
+              <h3 class="event-title">${escapeHtml(ev.title)}</h3>
+              <span class="event-date">${escapeHtml(ev.date)}</span>
+            </div>
+          </article>
+        `;
+      }
+      return `
+        <article class="event-card tilt-card no-image" data-tilt="4" data-cursor="Gör" data-event-index="${idx}" style="animation-delay: ${idx * 0.06}s">
+          <div class="event-text-top">
+            <span class="event-cat-pill">${escapeHtml(ev.categoryLabel)}</span>
+            <span class="social-date">${escapeHtml(ev.date)}</span>
+          </div>
+          <div class="event-text-body">
+            <h3>${escapeHtml(ev.title)}</h3>
+            <p>${escapeHtml(ev.description)}</p>
+          </div>
+          <span class="mono-sub">📍 ${escapeHtml(ev.place)}</span>
+        </article>
+      `;
+    })
+    .join("");
+
+  bindTiltToElements(grid.querySelectorAll(".tilt-card"));
+}
+
+/* ==========================================================================
+   IDEAS & BLOG RENDERING
+   ========================================================================== */
+function renderIdeas(ideas) {
+  const list = document.getElementById("ideasList");
+  if (!list) return;
+
+  list.innerHTML = ideas
+    .map(
+      (idea, idx) => `
+      <article class="idea-row reveal-up" data-idea-id="${escapeHtml(idea.id)}" data-cursor="Oku" style="--delay: ${idx * 0.06}s">
+        <span class="idea-date">${escapeHtml(idea.date)}</span>
+        <div class="idea-main">
+          <h3>${escapeHtml(idea.title)}</h3>
+          <p>${escapeHtml(idea.summary)}</p>
+        </div>
+        <div class="idea-meta">
+          <span class="tag-chip">${escapeHtml(idea.tag)}</span>
+          <span>${escapeHtml(idea.readTime)}</span>
+          <span class="idea-arrow">→</span>
+        </div>
+      </article>
+    `
+    )
     .join("");
 }
 
@@ -166,112 +346,6 @@ function renderSocialFeed(posts, filter) {
     .join("");
 }
 
-/* ==========================================================================
-   PROJECTS RENDERING + 3D TILT
-   ========================================================================== */
-function renderProjects(projects) {
-  const grid = document.getElementById("projectsGrid");
-  if (!grid) return;
-
-  grid.innerHTML = projects
-    .map(
-      (proj, idx) => `
-      <article class="project-card tilt-card reveal-up" data-tilt="4" data-cursor="Aç" style="--delay: ${idx * 0.08}s">
-        <div>
-          <div class="project-top">
-            <span class="project-year">${escapeHtml(proj.year)}</span>
-            <span class="project-status">${escapeHtml(proj.status)}</span>
-          </div>
-          <h3 class="project-title" style="margin-top: 16px;">${escapeHtml(proj.title)}</h3>
-          <p class="project-desc">${escapeHtml(proj.description)}</p>
-        </div>
-        <div>
-          <div class="project-stack" style="margin-bottom: 18px;">
-            ${(proj.stack || []).map((tech) => `<span class="tag-chip">${escapeHtml(tech)}</span>`).join("")}
-          </div>
-          <div class="project-links">
-            ${proj.githubUrl && proj.githubUrl !== "#" ? `<a href="${escapeHtml(proj.githubUrl)}" target="_blank" rel="noopener noreferrer">GitHub ↗</a>` : ""}
-            ${proj.liveUrl && proj.liveUrl !== "#" ? `<a href="${escapeHtml(proj.liveUrl)}" target="_blank" rel="noopener noreferrer">Canlı Önizleme ↗</a>` : ""}
-          </div>
-        </div>
-      </article>
-    `
-    )
-    .join("");
-}
-
-/* ==========================================================================
-   IDEAS & BLOG RENDERING
-   ========================================================================== */
-function renderIdeas(ideas) {
-  const list = document.getElementById("ideasList");
-  if (!list) return;
-
-  list.innerHTML = ideas
-    .map(
-      (idea, idx) => `
-      <article class="idea-row reveal-up" data-idea-id="${escapeHtml(idea.id)}" data-cursor="Oku" style="--delay: ${idx * 0.06}s">
-        <span class="idea-date">${escapeHtml(idea.date)}</span>
-        <div class="idea-main">
-          <h3>${escapeHtml(idea.title)}</h3>
-          <p>${escapeHtml(idea.summary)}</p>
-        </div>
-        <div class="idea-meta">
-          <span class="tag-chip">${escapeHtml(idea.tag)}</span>
-          <span>${escapeHtml(idea.readTime)}</span>
-          <span class="idea-arrow">→</span>
-        </div>
-      </article>
-    `
-    )
-    .join("");
-}
-
-/* ==========================================================================
-   EVENTS & SUMMITS GALLERY
-   ========================================================================== */
-let currentVisibleEvents = [];
-
-function renderEvents(events, filter) {
-  const grid = document.getElementById("eventsGrid");
-  if (!grid) return;
-
-  currentVisibleEvents = filter === "all" ? events : events.filter((e) => e.category === filter);
-
-  grid.innerHTML = currentVisibleEvents
-    .map((ev, idx) => {
-      const hasImage = Boolean(ev.image);
-      if (hasImage) {
-        return `
-          <article class="event-card tilt-card has-image" data-tilt="4" data-cursor="Gör" data-event-index="${idx}" style="animation-delay: ${idx * 0.06}s">
-            <img src="${escapeHtml(ev.image)}" alt="${escapeHtml(ev.title)}" loading="lazy" />
-            <div class="event-overlay">
-              <span class="event-place">${escapeHtml(ev.place)} · ${escapeHtml(ev.categoryLabel)}</span>
-              <h3 class="event-title">${escapeHtml(ev.title)}</h3>
-              <span class="event-date">${escapeHtml(ev.date)}</span>
-            </div>
-          </article>
-        `;
-      }
-      return `
-        <article class="event-card tilt-card no-image" data-tilt="4" data-cursor="Gör" data-event-index="${idx}" style="animation-delay: ${idx * 0.06}s">
-          <div class="event-text-top">
-            <span class="event-cat-pill">${escapeHtml(ev.categoryLabel)}</span>
-            <span class="social-date">${escapeHtml(ev.date)}</span>
-          </div>
-          <div class="event-text-body">
-            <h3>${escapeHtml(ev.title)}</h3>
-            <p>${escapeHtml(ev.description)}</p>
-          </div>
-          <span class="mono-sub">📍 ${escapeHtml(ev.place)}</span>
-        </article>
-      `;
-    })
-    .join("");
-
-  bindTiltToElements(grid.querySelectorAll(".tilt-card"));
-}
-
 function renderFooterSocials(links) {
   const wrap = document.getElementById("footerSocials");
   if (!wrap) return;
@@ -287,15 +361,38 @@ function renderFooterSocials(links) {
 }
 
 /* ==========================================================================
-   FILTERS & PLATFORM JUMP PILLS
+   SLIDING FILTER PILLS & PLATFORM JUMP
    ========================================================================== */
+function moveFilterPill(bar) {
+  if (!bar) return;
+  const bg = bar.querySelector(".filter-pill-bg");
+  const active = bar.querySelector(".filter-btn.active");
+  if (!bg || !active) return;
+  const barRect = bar.getBoundingClientRect();
+  const actRect = active.getBoundingClientRect();
+  bg.style.width = `${actRect.width}px`;
+  bg.style.transform = `translateX(${actRect.left - barRect.left - 5}px)`;
+}
+
 function initFilters(data) {
   const socialBar = document.getElementById("socialFilters");
+  const eventBar = document.getElementById("eventFilters");
+
+  requestAnimationFrame(() => {
+    moveFilterPill(socialBar);
+    moveFilterPill(eventBar);
+  });
+  window.addEventListener("resize", () => {
+    moveFilterPill(socialBar);
+    moveFilterPill(eventBar);
+  });
+
   socialBar?.addEventListener("click", (e) => {
     const btn = e.target.closest(".filter-btn");
     if (!btn) return;
     socialBar.querySelectorAll(".filter-btn").forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
+    moveFilterPill(socialBar);
     renderSocialFeed(data.socialPosts || [], btn.dataset.filter);
   });
 
@@ -306,17 +403,18 @@ function initFilters(data) {
       if (targetBtn) {
         socialBar.querySelectorAll(".filter-btn").forEach((b) => b.classList.remove("active"));
         targetBtn.classList.add("active");
+        moveFilterPill(socialBar);
         renderSocialFeed(data.socialPosts || [], platform);
       }
     });
   });
 
-  const eventBar = document.getElementById("eventFilters");
   eventBar?.addEventListener("click", (e) => {
     const btn = e.target.closest(".filter-btn");
     if (!btn) return;
     eventBar.querySelectorAll(".filter-btn").forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
+    moveFilterPill(eventBar);
     renderEvents(data.events || [], btn.dataset.eventFilter);
   });
 }
