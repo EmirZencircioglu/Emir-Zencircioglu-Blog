@@ -1004,6 +1004,7 @@ class BlogHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
+        req_path = urlparse(self.path).path
         if req_path in ("/api/chat", "/api/chat/status", "/api/content", "/api/contact", "/api/market-pulse"):
             self.send_header("Access-Control-Allow-Origin", "*")
         if extra_headers:
