@@ -133,6 +133,153 @@ def rotate_webhook_secret() -> str:
     return new_sec
 
 
+CHAT_RATE_LIMIT: dict[str, list[float]] = {}
+CHAT_MAX_REQUESTS = 20
+CHAT_WINDOW_SECONDS = 60
+GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+
+
+def get_gemini_api_key() -> tuple[str | None, str | None]:
+    """Ortam değişkeni (Railway GEMINI_API_KEY) veya admin panelindeki anahtarı döndürür."""
+    env_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if env_key:
+        return env_key, "env"
+    secret_data = load_secret() or {}
+    saved_key = str(secret_data.get("gemini_api_key", "")).strip()
+    if saved_key:
+        return saved_key, "admin"
+    return None, None
+
+
+def mask_gemini_key(api_key: str | None) -> str:
+    if not api_key:
+        return ""
+    if len(api_key) <= 8:
+        return "****"
+    return f"{api_key[:4]}...{api_key[-4:]}"
+
+
+def _build_portfolio_system_prompt(content: dict) -> str:
+    profile = content.get("profile") or {}
+    projects = content.get("projects") or []
+    events = content.get("events") or []
+    ideas = content.get("ideas") or []
+    social = content.get("socialPosts") or []
+    institutions = content.get("institutions") or []
+
+    proj_lines = [
+        f"- {p.get('title')} ({p.get('year', '')}, {p.get('status', '')}): {p.get('description', '')} | Teknolojiler: {', '.join(p.get('stack') or [])}"
+        for p in projects[:15]
+    ]
+    event_lines = [
+        f"- [{e.get('categoryLabel', '')}] {e.get('title')} ({e.get('place', '')}, {e.get('date', '')}): {e.get('description', '')}"
+        for e in events[:15]
+    ]
+    idea_lines = [
+        f"- [{i.get('tag', '')}] {i.get('title')} ({i.get('date', '')}): {i.get('summary', '')}"
+        for i in ideas[:12]
+    ]
+    social_lines = [
+        f"- [{s.get('platformLabel', '')}] {s.get('title')} ({s.get('date', '')}): {s.get('excerpt', '')}"
+        for s in social[:10]
+    ]
+
+    return (
+        "Sen Emir Zencircioğlu'nun kişisel blog ve portfolyo sitesindeki resmi yapay zeka asistanısın ('Emir AI').\n"
+        "Görevin: Siteyi inceleyen İK uzmanları, banka/finans yöneticileri, şirket çalışanları ve ziyaretçilerin "
+        "Emir hakkındaki sorularını net, kibar, profesyonel ve ikna edici biçimde yanıtlamak.\n\n"
+        "Kurallar:\n"
+        "1. Ziyaretçi hangi dilde yazarsa o dilde yanıt ver (varsayılan Türkçe).\n"
+        "2. Sadece aşağıdaki güncel site verilerine ve bağlama dayan; bilmediğin bilgileri uydurma.\n"
+        "3. Kısa, okunabilir ve doğrudan sorulara odaklanan yanıtlar ver.\n"
+        "4. İletişim veya staj/iş birliği sorulursa telefon (0537 775 12 24) ve e-posta bilgilerini paylaş.\n\n"
+        f"=== PROFİL ===\n"
+        f"Ad Soyad: {profile.get('name', 'Emir Zencircioğlu')}\n"
+        f"Rol: {profile.get('role', '')}\n"
+        f"Durum: {profile.get('status', '')}\n"
+        f"Biyografi: {profile.get('bio', '')}\n"
+        f"Kariyer Hedefi & Konumlandırma: Üniversite eğitimini yazılım ve ürün geliştirme projeleriyle beslerken "
+        f"sermaye piyasaları, yatırım, hazine ve bankacılık süreçlerinde de kendini aktif geliştiren bir öğrenci; "
+        f"büyük ölçekli bankaların ve kurumsal şirketlerin hazine, yatırım veya teknoloji ekiplerinde sorumluluk almaya açık.\n"
+        f"İlgi Alanları: {', '.join(profile.get('interests') or [])}\n"
+        f"Güncel Odak: {'; '.join(profile.get('now') or [])}\n"
+        f"E-posta: {profile.get('email', 'ezencircioglu0024@gmail.com')}\n"
+        f"Telefon: 0537 775 12 24 (+90 537 775 12 24)\n"
+        f"Katıldığı Kurumlar / Ekosistemler: {', '.join(institutions)}\n\n"
+        f"=== PROJELER ===\n" + ("\n".join(proj_lines) or "Henüz proje listelenmedi.") + "\n\n"
+        f"=== ETKİNLİK, BANKA VE ZİRVEMELER ===\n" + ("\n".join(event_lines) or "Henüz etkinlik listelenmedi.") + "\n\n"
+        f"=== FİKİRLER VE YAZILAR ===\n" + ("\n".join(idea_lines) or "Henüz yazı listelenmedi.") + "\n\n"
+        f"=== SON SOSYAL PAYLAŞIMLAR ===\n" + ("\n".join(social_lines) or "Henüz paylaşım listelenmedi.")
+    )
+
+
+def call_gemini_api(api_key: str, system_prompt: str, history: list, user_message: str) -> str:
+    contents = []
+    if isinstance(history, list):
+        for turn in history[-10:]:
+            if not isinstance(turn, dict):
+                continue
+            role = "model" if turn.get("role") == "model" else "user"
+            text = str(turn.get("text", "")).strip()
+            if text:
+                contents.append({"role": role, "parts": [{"text": text[:1500]}]})
+    contents.append({"role": "user", "parts": [{"text": user_message[:1500]}]})
+
+    payload_bytes = json.dumps(
+        {
+            "systemInstruction": {"parts": [{"text": system_prompt}]},
+            "contents": contents,
+            "generationConfig": {
+                "temperature": 0.65,
+                "maxOutputTokens": 650,
+            },
+        },
+        ensure_ascii=False,
+    ).encode("utf-8")
+
+    last_error = "Gemini servisine bağlanılamadı."
+    for model in GEMINI_MODELS:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        req = urllib.request.Request(
+            url,
+            data=payload_bytes,
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "x-goog-api-key": api_key,
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=25) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            candidates = data.get("candidates") or []
+            if candidates:
+                parts = (candidates[0].get("content") or {}).get("parts") or []
+                reply_text = "".join(str(p.get("text", "")) for p in parts).strip()
+                if reply_text:
+                    return reply_text
+            last_error = "Gemini boş yanıt döndürdü."
+        except urllib.error.HTTPError as e:
+            err_body = ""
+            try:
+                err_body = e.read().decode("utf-8", errors="ignore")
+            except Exception:
+                pass
+            if e.code == 404:
+                last_error = f"Model bulunamadı ({model})."
+                continue
+            if e.code in (400, 401, 403):
+                raise RuntimeError("Gemini API anahtarı geçersiz veya yetkisiz görünüyor.") from e
+            if e.code == 429:
+                raise RuntimeError("Gemini API istek limiti geçici olarak doldu, lütfen biraz sonra tekrar deneyin.") from e
+            raise RuntimeError(f"Gemini API hatası ({e.code}): {err_body[:160]}") from e
+        except Exception as e:
+            last_error = f"Bağlantı hatası: {e}"
+            continue
+
+    raise RuntimeError(last_error)
+
+
 TR_MONTHS = [
     "", "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
     "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık",
@@ -567,13 +714,19 @@ class BlogHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if path == "/api/chat/status":
+            gemini_key, _ = get_gemini_api_key()
+            self._send_json(200, {"configured": bool(gemini_key)})
+            return
+
         if path == "/api/admin/automation":
             user = self._get_authenticated_user()
             if not user:
                 self._send_json(401, {"error": "Yetkisiz erişim."})
                 return
-            secret_data = load_secret()
+            secret_data = load_secret() or {}
             content = load_content()
+            gemini_key, gemini_source = get_gemini_api_key()
             self._send_json(
                 200,
                 {
@@ -582,6 +735,9 @@ class BlogHandler(BaseHTTPRequestHandler):
                     "githubUsername": content.get("profile", {}).get("githubUsername", ""),
                     "igUserId": secret_data.get("ig_user_id", ""),
                     "igConfigured": bool(secret_data.get("ig_access_token")),
+                    "geminiConfigured": bool(gemini_key),
+                    "geminiSource": gemini_source,
+                    "geminiMasked": mask_gemini_key(gemini_key),
                     "feeds": load_feeds(),
                     "botLastRun": BOT_LAST_RUN,
                 },
@@ -682,10 +838,76 @@ class BlogHandler(BaseHTTPRequestHandler):
             self._handle_social_webhook()
             return
 
+        # Herkese Açık Gemini Chatbot Uç Noktası
+        if path == "/api/chat":
+            client_ip = (self.headers.get("X-Forwarded-For", "").split(",")[0].strip() or self.client_address[0])
+            now_ts = time.time()
+            recent = [t for t in CHAT_RATE_LIMIT.get(client_ip, []) if now_ts - t < CHAT_WINDOW_SECONDS]
+            if len(recent) >= CHAT_MAX_REQUESTS:
+                self._send_json(429, {"error": "Çok hızlı mesaj gönderildi. Lütfen kısa bir süre bekleyin."})
+                return
+            recent.append(now_ts)
+            CHAT_RATE_LIMIT[client_ip] = recent
+
+            body = self._read_json_body(32 * 1024)
+            if not body:
+                self._send_json(400, {"error": "Geçersiz sohbet isteği."})
+                return
+            message = str(body.get("message", "")).strip()
+            if not message:
+                self._send_json(400, {"error": "Mesaj boş olamaz."})
+                return
+            history = body.get("history") or []
+
+            api_key, _ = get_gemini_api_key()
+            if not api_key:
+                self._send_json(
+                    503,
+                    {
+                        "error": "Gemini API anahtarı henüz bağlanmamış. Admin Panelinden veya Railway üzerinden GEMINI_API_KEY ekleyebilirsiniz.",
+                        "code": "NO_API_KEY",
+                    },
+                )
+                return
+
+            try:
+                system_prompt = _build_portfolio_system_prompt(load_content())
+                reply = call_gemini_api(api_key, system_prompt, history, message)
+                self._send_json(200, {"ok": True, "reply": reply})
+            except RuntimeError as e:
+                self._send_json(502, {"error": str(e)})
+            except Exception as e:
+                self._send_json(500, {"error": f"Sohbet yanıtı alınamadı: {e}"})
+            return
+
         # Buradan sonrası YETKİ GEREKTİRİR
         user = self._get_authenticated_user()
         if not user:
             self._send_json(401, {"error": "Yetkisiz erişim. Lütfen giriş yap."})
+            return
+
+        if path == "/api/admin/gemini":
+            body = self._read_json_body(4096) or {}
+            api_key = str(body.get("apiKey", "")).strip()
+            secret_data = load_secret()
+            if not secret_data:
+                self._send_json(400, {"error": "Önce admin hesabını kurun."})
+                return
+            if api_key:
+                secret_data["gemini_api_key"] = api_key
+            else:
+                secret_data.pop("gemini_api_key", None)
+            _write_secret_file(secret_data)
+            active_key, source = get_gemini_api_key()
+            self._send_json(
+                200,
+                {
+                    "ok": True,
+                    "geminiConfigured": bool(active_key),
+                    "geminiSource": source,
+                    "geminiMasked": mask_gemini_key(active_key),
+                },
+            )
             return
 
         if path == "/api/admin/feeds":

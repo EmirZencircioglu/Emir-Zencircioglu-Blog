@@ -41,6 +41,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initModals(data);
   initMobileMenu();
   initCopyEmail(data.profile?.email || "");
+  initChatbot(data);
 });
 
 /* ==========================================================================
@@ -937,4 +938,157 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+/* ==========================================================================
+   FLOATING FACE CHATBOT (GEMINI AI)
+   ========================================================================== */
+function initChatbot(data) {
+  const widget = document.getElementById("chatWidget");
+  const fab = document.getElementById("chatFab");
+  const panel = document.getElementById("chatPanel");
+  const closeBtn = document.getElementById("chatCloseBtn");
+  const resetBtn = document.getElementById("chatResetBtn");
+  const messagesEl = document.getElementById("chatMessages");
+  const suggestionsEl = document.getElementById("chatSuggestions");
+  const form = document.getElementById("chatForm");
+  const input = document.getElementById("chatInput");
+  const sendBtn = document.getElementById("chatSendBtn");
+  const fabAvatar = document.getElementById("chatFabAvatar");
+  const fabWrap = document.getElementById("chatFabAvatarWrap");
+  const headAvatar = document.getElementById("chatHeadAvatar");
+  const headWrap = document.getElementById("chatHeadAvatarWrap");
+
+  if (!widget || !fab || !panel || !messagesEl || !form || !input) return;
+
+  const profile = data.profile || {};
+  const firstName = (profile.name || "Emir").trim().split(/\s+/)[0];
+  setText("chatBotTitle", `${firstName} AI`);
+
+  // Kullanıcının profil fotoğrafını yuvarlak yüz topuna bağla; yüklenemezse EZ monogramına düş
+  const avatarUrl = profile.avatar || "";
+  function bindAvatar(imgEl, wrapEl) {
+    if (!imgEl || !wrapEl) return;
+    if (!avatarUrl || avatarUrl.startsWith("file://")) {
+      wrapEl.classList.add("is-fallback");
+      return;
+    }
+    imgEl.onload = () => wrapEl.classList.remove("is-fallback");
+    imgEl.onerror = () => wrapEl.classList.add("is-fallback");
+    imgEl.src = avatarUrl;
+  }
+  bindAvatar(fabAvatar, fabWrap);
+  bindAvatar(headAvatar, headWrap);
+
+  let history = [];
+  let isBusy = false;
+
+  function formatChatText(raw) {
+    let safe = escapeHtml(raw || "");
+    safe = safe.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    safe = safe.replace(/\n/g, "<br>");
+    return safe;
+  }
+
+  function appendMessage(role, text, isError = false) {
+    const bubble = document.createElement("div");
+    bubble.className = `chat-msg ${role === "user" ? "chat-msg-user" : "chat-msg-bot"}${isError ? " chat-msg-error" : ""}`;
+    bubble.innerHTML = formatChatText(text);
+    messagesEl.appendChild(bubble);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return bubble;
+  }
+
+  function renderWelcome() {
+    messagesEl.innerHTML = "";
+    history = [];
+    suggestionsEl?.classList.remove("hidden");
+    appendMessage(
+      "model",
+      `Merhaba! Ben **${firstName}'in AI asistanıyım.**\n\nSermaye piyasaları, hazine ve bankacılık ilgisi, yazılım projeleri, katıldığı zirveler veya iletişim bilgileri hakkında merak ettiğiniz her şeyi sorabilirsiniz.`
+    );
+  }
+
+  function setOpen(nextOpen) {
+    widget.classList.toggle("open", nextOpen);
+    fab.setAttribute("aria-expanded", String(nextOpen));
+    panel.setAttribute("aria-hidden", String(!nextOpen));
+    if (nextOpen) {
+      setTimeout(() => input.focus(), 120);
+    }
+  }
+
+  async function sendQuestion(questionText) {
+    const trimmed = questionText.trim();
+    if (!trimmed || isBusy) return;
+
+    isBusy = true;
+    sendBtn.disabled = true;
+    suggestionsEl?.classList.add("hidden");
+
+    appendMessage("user", trimmed);
+    input.value = "";
+
+    const typingBubble = document.createElement("div");
+    typingBubble.className = "chat-msg chat-msg-bot";
+    typingBubble.innerHTML = `<div class="chat-typing" aria-label="Yazıyor"><span></span><span></span><span></span></div>`;
+    messagesEl.appendChild(typingBubble);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: trimmed,
+          history,
+        }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      typingBubble.remove();
+
+      if (!res.ok || !payload.reply) {
+        appendMessage("model", payload.error || "Şu anda yanıt oluşturulamadı. Lütfen tekrar deneyin.", true);
+      } else {
+        appendMessage("model", payload.reply);
+        history.push({ role: "user", text: trimmed });
+        history.push({ role: "model", text: payload.reply });
+        if (history.length > 20) history = history.slice(-20);
+      }
+    } catch {
+      typingBubble.remove();
+      appendMessage("model", "Sunucuya bağlanılamadı. Lütfen bağlantınızı kontrol edin.", true);
+    } finally {
+      isBusy = false;
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  }
+
+  renderWelcome();
+
+  fab.addEventListener("click", () => {
+    setOpen(!widget.classList.contains("open"));
+  });
+
+  closeBtn?.addEventListener("click", () => setOpen(false));
+  resetBtn?.addEventListener("click", renderWelcome);
+
+  suggestionsEl?.querySelectorAll(".chat-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const prompt = chip.dataset.prompt || chip.textContent || "";
+      sendQuestion(prompt);
+    });
+  });
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    sendQuestion(input.value);
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && widget.classList.contains("open")) {
+      setOpen(false);
+    }
+  });
 }

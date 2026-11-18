@@ -392,6 +392,64 @@
     </div>
   </div>
 
+  <!-- FLOATING FACE CHATBOT WIDGET (GEMINI AI) -->
+  <div class="chat-widget" id="chatWidget">
+    <section class="chat-panel" id="chatPanel" role="dialog" aria-label="Emir AI Asistanı" aria-hidden="true">
+      <header class="chat-head">
+        <div class="chat-head-identity">
+          <div class="chat-mini-avatar is-fallback" id="chatHeadAvatarWrap">
+            <img id="chatHeadAvatar" src="" alt="Emir Zencircioğlu" />
+            <span class="chat-avatar-fallback" aria-hidden="true">EZ</span>
+            <span class="chat-online-dot" aria-hidden="true"></span>
+          </div>
+          <div>
+            <strong class="chat-head-title" id="chatBotTitle">Emir AI</strong>
+            <span class="chat-head-sub">Sermaye Piyasaları · Finans · Yazılım</span>
+          </div>
+        </div>
+        <div class="chat-head-actions">
+          <button type="button" class="chat-icon-btn" id="chatResetBtn" title="Sohbeti Sıfırla" aria-label="Sohbeti Sıfırla">↺</button>
+          <button type="button" class="chat-icon-btn" id="chatCloseBtn" title="Kapat" aria-label="Sohbeti Kapat">✕</button>
+        </div>
+      </header>
+
+      <div class="chat-messages" id="chatMessages" aria-live="polite"></div>
+
+      <div class="chat-suggestions" id="chatSuggestions">
+        <button type="button" class="chat-chip" data-prompt="Emir'in sermaye piyasaları, hazine ve finans alanındaki ilgisi ve hedefleri nelerdir?">Sermaye piyasaları &amp; hazine</button>
+        <button type="button" class="chat-chip" data-prompt="Emir hangi yazılım projelerini geliştirdi?">Projeleri neler?</button>
+        <button type="button" class="chat-chip" data-prompt="Emir'e staj veya iş birliği için nasıl ulaşabiliriz?">İletişim bilgileri</button>
+      </div>
+
+      <form class="chat-form" id="chatForm" autocomplete="off">
+        <input
+          type="text"
+          id="chatInput"
+          maxlength="1200"
+          placeholder="Emir hakkında bir soru sorun..."
+          aria-label="Emir hakkında soru yazın"
+          required
+        />
+        <button type="submit" class="chat-send-btn" id="chatSendBtn" aria-label="Gönder">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"></path>
+          </svg>
+        </button>
+      </form>
+      <div class="chat-powered">Gemini AI · Güncel portfolyo verileriyle yanıtlar</div>
+    </section>
+
+    <button type="button" class="chat-fab" id="chatFab" aria-label="Emir AI Sohbetini Aç" aria-expanded="false">
+      <span class="chat-fab-tooltip">Emir'i sor ✨</span>
+      <span class="chat-fab-ring is-fallback" id="chatFabAvatarWrap">
+        <img id="chatFabAvatar" src="" alt="Emir Zencircioğlu Asistanı" />
+        <span class="chat-fab-fallback" aria-hidden="true">EZ</span>
+        <span class="chat-fab-close" aria-hidden="true">✕</span>
+      </span>
+      <span class="chat-fab-dot" aria-hidden="true"></span>
+    </button>
+  </div>
+
   <!-- Toast Notification -->
   <div class="toast" id="toast">Kopyalandı!</div>
 

@@ -279,6 +279,18 @@ async function loadAutomationInfo() {
   if (statusEl && info.botLastRun?.time) {
     statusEl.textContent = `Son bot kontrolü: ${info.botLastRun.time} · Eklenen: ${info.botLastRun.added}${info.botLastRun.error ? ` · Hata: ${info.botLastRun.error}` : ""}`;
   }
+  updateGeminiStatusUI(info);
+}
+
+function updateGeminiStatusUI(info) {
+  const geminiStatus = document.getElementById("geminiStatusText");
+  if (!geminiStatus) return;
+  if (info.geminiConfigured) {
+    const srcLabel = info.geminiSource === "env" ? "Railway Ortam Değişkeni (GEMINI_API_KEY)" : "Admin Paneli";
+    geminiStatus.textContent = `Bağlı (${srcLabel}) · Anahtar: ${info.geminiMasked || "****"}`;
+  } else {
+    geminiStatus.textContent = "Henüz Gemini API anahtarı bağlı değil.";
+  }
 }
 
 function renderFeedsList(feeds) {
@@ -385,6 +397,44 @@ function initAutomationControls() {
       await loadAdminContent();
     } else {
       showToast(data.error || "GitHub senkronizasyonu başarısız.", true);
+    }
+  });
+
+  document.getElementById("formGeminiKey")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const apiKey = val("geminiApiKeyInput");
+    if (!apiKey) {
+      showToast("Lütfen geçerli bir Gemini API anahtarı gir.", true);
+      return;
+    }
+    const res = await fetch("/api/admin/gemini", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ apiKey }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setVal("geminiApiKeyInput", "");
+      updateGeminiStatusUI(data);
+      showToast("Gemini API anahtarı kaydedildi!");
+    } else {
+      showToast(data.error || "API anahtarı kaydedilemedi.", true);
+    }
+  });
+
+  document.getElementById("clearGeminiKeyBtn")?.addEventListener("click", async () => {
+    if (!confirm("Admin panelinde kayıtlı Gemini API anahtarını silmek istediğine emin misin?")) return;
+    const res = await fetch("/api/admin/gemini", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ apiKey: "" }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      updateGeminiStatusUI(data);
+      showToast("Kayıtlı Gemini anahtarı temizlendi.");
+    } else {
+      showToast(data.error || "İşlem başarısız.", true);
     }
   });
 }

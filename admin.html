@@ -523,8 +523,24 @@
             </div>
           </div>
 
-          <!-- Kurulum Rehberi -->
+          <!-- Kurulum Rehberi & Gemini AI Ayarları -->
           <aside class="admin-panel-card">
+            <h2>Gemini AI Chatbot Bağlantısı</h2>
+            <p class="view-desc" style="margin-bottom: 14px;">Sağ alttaki yüzen sohbet asistanının ziyaretçilerin sorularını yanıtlaması için Google Gemini API anahtarını gir (veya Railway üzerinden <code>GEMINI_API_KEY</code> ortam değişkeni tanımla).</p>
+            <form id="formGeminiKey" class="admin-form" style="margin-bottom: 18px;">
+              <label class="field">
+                <span>Gemini API Anahtarı</span>
+                <input type="password" id="geminiApiKeyInput" placeholder="AIzaSy..." autocomplete="off" />
+              </label>
+              <div class="field-row">
+                <button type="submit" class="btn btn-primary btn-sm">API Anahtarını Kaydet</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="clearGeminiKeyBtn">Kayıtlı Anahtarı Sil</button>
+              </div>
+              <p class="mono-sub" id="geminiStatusText">Durum kontrol ediliyor...</p>
+            </form>
+
+            <hr class="admin-divider" />
+
             <h2>Nasıl Çalışır?</h2>
             <div class="guide-blocks">
               <div class="guide-item">
