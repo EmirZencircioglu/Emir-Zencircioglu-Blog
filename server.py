@@ -228,15 +228,25 @@ def _discover_gemini_models(api_key: str) -> list[str]:
         with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
+        err_body = ""
+        try:
+            err_body = e.read().decode("utf-8", errors="ignore")
+        except Exception:
+            pass
+        print(f"[Gemini discover] HTTP {e.code}: {err_body[:300]}", flush=True)
         if e.code in (400, 401, 403):
             raise RuntimeError("Gemini API anahtarı geçersiz veya yetkisiz görünüyor.") from e
         return []
-    except Exception:
+    except Exception as e:
+        print(f"[Gemini discover] Exception: {e}", flush=True)
         return []
+
+    raw_models = data.get("models") or []
+    print(f"[Gemini discover] {len(raw_models)} models listed: {[m.get('name') for m in raw_models[:12]]}", flush=True)
 
     excluded = ("tts", "image", "embedding", "aqa", "robotics", "computer-use", "audio")
     candidates = []
-    for m in data.get("models") or []:
+    for m in raw_models:
         methods = m.get("supportedGenerationMethods") or []
         if "generateContent" not in methods:
             continue
@@ -244,11 +254,9 @@ def _discover_gemini_models(api_key: str) -> list[str]:
         lower = name.lower()
         if not name or not lower.startswith("gemini") or any(tag in lower for tag in excluded):
             continue
-        # flash modelleri önceliklendir, sonra diğerleri
         priority = 0 if "flash" in lower else (1 if "pro" in lower else 2)
         candidates.append((priority, name))
 
-    # Yeni sürüm flash modellerini öne al
     candidates.sort(key=lambda item: (item[0], item[1]))
     flash_first = [name for pr, name in candidates if pr == 0]
     flash_first.reverse()
@@ -284,14 +292,21 @@ def _try_gemini_model(api_key: str, model: str, payload_bytes: bytes) -> tuple[s
             err_body = e.read().decode("utf-8", errors="ignore")
         except Exception:
             pass
+        print(f"[Gemini try {model}] HTTP {e.code}: {err_body[:300]}", flush=True)
         if e.code == 404:
-            return None, f"Model bulunamadı ({model}).", True
+            detail = ""
+            try:
+                detail = str((json.loads(err_body).get("error") or {}).get("message") or "")
+            except Exception:
+                detail = err_body[:120]
+            return None, f"Model bulunamadı ({model}): {detail}", True
         if e.code in (401, 403) or (e.code == 400 and "api key" in err_body.lower()):
             raise RuntimeError("Gemini API anahtarı geçersiz veya yetkisiz görünüyor.") from e
         if e.code == 429:
             raise RuntimeError("Gemini API istek limiti geçici olarak doldu, lütfen biraz sonra tekrar deneyin.") from e
         return None, f"Gemini API hatası ({e.code}, {model}): {err_body[:160]}", False
     except Exception as e:
+        print(f"[Gemini try {model}] Exception: {e}", flush=True)
         return None, f"Bağlantı hatası ({model}): {e}", False
 
 
