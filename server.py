@@ -136,7 +136,14 @@ def rotate_webhook_secret() -> str:
 CHAT_RATE_LIMIT: dict[str, list[float]] = {}
 CHAT_MAX_REQUESTS = 20
 CHAT_WINDOW_SECONDS = 60
-GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+GEMINI_MODELS = [
+    "gemini-flash-latest",
+    "gemini-2.5-flash",
+    "gemini-3-flash",
+    "gemini-3.5-flash",
+    "gemini-2.0-flash",
+]
+_CACHED_GEMINI_MODEL: str | None = None
 
 
 def get_gemini_api_key() -> tuple[str | None, str | None]:
@@ -213,7 +220,83 @@ def _build_portfolio_system_prompt(content: dict) -> str:
     )
 
 
+def _discover_gemini_models(api_key: str) -> list[str]:
+    """Kullanılabilir generateContent modellerini Gemini API'den dinamik olarak çeker."""
+    url = "https://generativelanguage.googleapis.com/v1beta/models?pageSize=100"
+    req = urllib.request.Request(url, method="GET", headers={"x-goog-api-key": api_key})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        if e.code in (400, 401, 403):
+            raise RuntimeError("Gemini API anahtarı geçersiz veya yetkisiz görünüyor.") from e
+        return []
+    except Exception:
+        return []
+
+    excluded = ("tts", "image", "embedding", "aqa", "robotics", "computer-use", "audio")
+    candidates = []
+    for m in data.get("models") or []:
+        methods = m.get("supportedGenerationMethods") or []
+        if "generateContent" not in methods:
+            continue
+        name = str(m.get("name") or "").removeprefix("models/").strip()
+        lower = name.lower()
+        if not name or not lower.startswith("gemini") or any(tag in lower for tag in excluded):
+            continue
+        # flash modelleri önceliklendir, sonra diğerleri
+        priority = 0 if "flash" in lower else (1 if "pro" in lower else 2)
+        candidates.append((priority, name))
+
+    # Yeni sürüm flash modellerini öne al
+    candidates.sort(key=lambda item: (item[0], item[1]))
+    flash_first = [name for pr, name in candidates if pr == 0]
+    flash_first.reverse()
+    others = [name for pr, name in candidates if pr > 0]
+    return flash_first + others
+
+
+def _try_gemini_model(api_key: str, model: str, payload_bytes: bytes) -> tuple[str | None, str | None, bool]:
+    """Tek bir modeli dener: (reply_text, err_msg, is_not_found)."""
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    req = urllib.request.Request(
+        url,
+        data=payload_bytes,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "x-goog-api-key": api_key,
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=25) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        candidates = data.get("candidates") or []
+        if candidates:
+            parts = (candidates[0].get("content") or {}).get("parts") or []
+            reply_text = "".join(str(p.get("text", "")) for p in parts).strip()
+            if reply_text:
+                return reply_text, None, False
+        return None, "Gemini boş yanıt döndürdü.", False
+    except urllib.error.HTTPError as e:
+        err_body = ""
+        try:
+            err_body = e.read().decode("utf-8", errors="ignore")
+        except Exception:
+            pass
+        if e.code == 404:
+            return None, f"Model bulunamadı ({model}).", True
+        if e.code in (401, 403) or (e.code == 400 and "api key" in err_body.lower()):
+            raise RuntimeError("Gemini API anahtarı geçersiz veya yetkisiz görünüyor.") from e
+        if e.code == 429:
+            raise RuntimeError("Gemini API istek limiti geçici olarak doldu, lütfen biraz sonra tekrar deneyin.") from e
+        return None, f"Gemini API hatası ({e.code}, {model}): {err_body[:160]}", False
+    except Exception as e:
+        return None, f"Bağlantı hatası ({model}): {e}", False
+
+
 def call_gemini_api(api_key: str, system_prompt: str, history: list, user_message: str) -> str:
+    global _CACHED_GEMINI_MODEL
     contents = []
     if isinstance(history, list):
         for turn in history[-10:]:
@@ -237,45 +320,35 @@ def call_gemini_api(api_key: str, system_prompt: str, history: list, user_messag
         ensure_ascii=False,
     ).encode("utf-8")
 
+    tried = set()
+    initial_models = ([_CACHED_GEMINI_MODEL] if _CACHED_GEMINI_MODEL else []) + list(GEMINI_MODELS)
     last_error = "Gemini servisine bağlanılamadı."
-    for model in GEMINI_MODELS:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-        req = urllib.request.Request(
-            url,
-            data=payload_bytes,
-            method="POST",
-            headers={
-                "Content-Type": "application/json",
-                "x-goog-api-key": api_key,
-            },
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=25) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-            candidates = data.get("candidates") or []
-            if candidates:
-                parts = (candidates[0].get("content") or {}).get("parts") or []
-                reply_text = "".join(str(p.get("text", "")) for p in parts).strip()
-                if reply_text:
-                    return reply_text
-            last_error = "Gemini boş yanıt döndürdü."
-        except urllib.error.HTTPError as e:
-            err_body = ""
-            try:
-                err_body = e.read().decode("utf-8", errors="ignore")
-            except Exception:
-                pass
-            if e.code == 404:
-                last_error = f"Model bulunamadı ({model})."
-                continue
-            if e.code in (400, 401, 403):
-                raise RuntimeError("Gemini API anahtarı geçersiz veya yetkisiz görünüyor.") from e
-            if e.code == 429:
-                raise RuntimeError("Gemini API istek limiti geçici olarak doldu, lütfen biraz sonra tekrar deneyin.") from e
-            raise RuntimeError(f"Gemini API hatası ({e.code}): {err_body[:160]}") from e
-        except Exception as e:
-            last_error = f"Bağlantı hatası: {e}"
+    all_404 = True
+
+    for model in initial_models:
+        if not model or model in tried:
             continue
+        tried.add(model)
+        reply_text, err_msg, is_404 = _try_gemini_model(api_key, model, payload_bytes)
+        if reply_text:
+            _CACHED_GEMINI_MODEL = model
+            return reply_text
+        if not is_404:
+            all_404 = False
+        if err_msg:
+            last_error = err_msg
+
+    if all_404:
+        for model in _discover_gemini_models(api_key):
+            if model in tried:
+                continue
+            tried.add(model)
+            reply_text, err_msg, _ = _try_gemini_model(api_key, model, payload_bytes)
+            if reply_text:
+                _CACHED_GEMINI_MODEL = model
+                return reply_text
+            if err_msg:
+                last_error = err_msg
 
     raise RuntimeError(last_error)
 
@@ -887,6 +960,7 @@ class BlogHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/api/admin/gemini":
+            global _CACHED_GEMINI_MODEL
             body = self._read_json_body(4096) or {}
             api_key = str(body.get("apiKey", "")).strip()
             secret_data = load_secret()
@@ -897,6 +971,7 @@ class BlogHandler(BaseHTTPRequestHandler):
                 secret_data["gemini_api_key"] = api_key
             else:
                 secret_data.pop("gemini_api_key", None)
+            _CACHED_GEMINI_MODEL = None
             _write_secret_file(secret_data)
             active_key, source = get_gemini_api_key()
             self._send_json(
