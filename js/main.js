@@ -5,6 +5,7 @@
 document.addEventListener("DOMContentLoaded", async () => {
   initTheme();
   initIntroCurtain();
+  initHeroCanvas();
 
   let data = window.BLOG_DATA;
   if (window.location.protocol !== "file:") {
@@ -57,7 +58,7 @@ function initIntroCurtain() {
    ========================================================================== */
 function initTheme() {
   const root = document.documentElement;
-  const saved = localStorage.getItem("blog-theme-v2") || "light";
+  const saved = localStorage.getItem("blog-theme-v3") || "dark";
   root.setAttribute("data-theme", saved);
 
   const btn = document.getElementById("themeToggle");
@@ -65,7 +66,7 @@ function initTheme() {
     const current = root.getAttribute("data-theme");
     const next = current === "dark" ? "light" : "dark";
     root.setAttribute("data-theme", next);
-    localStorage.setItem("blog-theme-v2", next);
+    localStorage.setItem("blog-theme-v3", next);
   });
 }
 
@@ -591,34 +592,90 @@ function initScrollEffects() {
   );
 }
 
-function initNavIndicator() {
-  const navLinksWrap = document.getElementById("navLinks");
-  const indicator = document.getElementById("navIndicator");
-  if (!navLinksWrap || !indicator) return;
+function initHeroCanvas() {
+  const canvas = document.getElementById("heroCanvas");
+  if (!canvas || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
 
-  const links = Array.from(navLinksWrap.querySelectorAll(".nav-link"));
-  let activeLink = links.find((l) => l.classList.contains("active")) || links[0] || null;
+  let w = (canvas.width = window.innerWidth);
+  let h = (canvas.height = window.innerHeight);
+  const count = Math.min(48, Math.floor((w * h) / 28000));
+  const mouse = { x: w * 0.5, y: h * 0.4 };
 
-  function moveIndicatorTo(el) {
-    if (!el) {
-      indicator.style.opacity = "0";
-      return;
-    }
-    const wrapRect = navLinksWrap.getBoundingClientRect();
-    const elRect = el.getBoundingClientRect();
-    indicator.style.width = `${elRect.width}px`;
-    indicator.style.transform = `translateX(${elRect.left - wrapRect.left - 1 + navLinksWrap.scrollLeft}px)`;
-    indicator.style.opacity = "1";
-  }
+  const nodes = Array.from({ length: count }, (_, i) => ({
+    x: Math.random() * w,
+    y: Math.random() * h,
+    vx: (Math.random() - 0.5) * 0.32,
+    vy: (Math.random() - 0.5) * 0.32,
+    r: 1.4 + Math.random() * 1.6,
+    gold: i % 3 === 0,
+  }));
 
-  requestAnimationFrame(() => moveIndicatorTo(activeLink));
-
-  links.forEach((link) => {
-    link.addEventListener("mouseenter", () => moveIndicatorTo(link));
+  window.addEventListener("resize", () => {
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
   });
 
-  navLinksWrap.addEventListener("mouseleave", () => moveIndicatorTo(activeLink));
+  window.addEventListener(
+    "mousemove",
+    (e) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    },
+    { passive: true }
+  );
 
+  function frame() {
+    ctx.clearRect(0, 0, w, h);
+    const isLight = document.documentElement.getAttribute("data-theme") === "light";
+
+    for (let i = 0; i < nodes.length; i++) {
+      const a = nodes[i];
+      a.x += a.vx;
+      a.y += a.vy;
+      if (a.x < 0 || a.x > w) a.vx *= -1;
+      if (a.y < 0 || a.y > h) a.vy *= -1;
+
+      const dxm = mouse.x - a.x;
+      const dym = mouse.y - a.y;
+      const dm = Math.hypot(dxm, dym);
+      if (dm < 170) {
+        a.x -= dxm * 0.0025;
+        a.y -= dym * 0.0025;
+      }
+
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, a.r, 0, Math.PI * 2);
+      ctx.fillStyle = a.gold
+        ? isLight ? "rgba(180, 134, 11, 0.45)" : "rgba(212, 175, 55, 0.55)"
+        : isLight ? "rgba(5, 150, 105, 0.38)" : "rgba(16, 185, 129, 0.45)";
+      ctx.fill();
+
+      for (let j = i + 1; j < nodes.length; j++) {
+        const b = nodes[j];
+        const dist = Math.hypot(a.x - b.x, a.y - b.y);
+        if (dist < 145) {
+          const alpha = (1 - dist / 145) * (isLight ? 0.14 : 0.18);
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.strokeStyle = a.gold ? `rgba(212, 175, 55, ${alpha})` : `rgba(16, 185, 129, ${alpha})`;
+          ctx.lineWidth = 0.8;
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+function initNavIndicator() {
+  const railWrap = document.getElementById("navLinks");
+  if (!railWrap) return;
+
+  const links = Array.from(railWrap.querySelectorAll(".rail-item"));
   const sectionIds = links.map((l) => l.dataset.section).filter(Boolean);
   const observer = new IntersectionObserver(
     (entries) => {
@@ -628,8 +685,6 @@ function initNavIndicator() {
           if (match) {
             links.forEach((l) => l.classList.remove("active"));
             match.classList.add("active");
-            activeLink = match;
-            moveIndicatorTo(match);
           }
         }
       });
@@ -641,8 +696,6 @@ function initNavIndicator() {
     const sec = document.getElementById(id);
     if (sec) observer.observe(sec);
   });
-
-  window.addEventListener("resize", () => moveIndicatorTo(activeLink));
 }
 
 function initRevealObserver() {
