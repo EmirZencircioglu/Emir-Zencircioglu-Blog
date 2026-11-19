@@ -1292,14 +1292,35 @@ function initRoamingFaceOrb(widget, fab, tooltipEl, firstName) {
     const minY = Math.min(88, Math.max(16, window.innerHeight * 0.14));
     const maxY = Math.max(minY, window.innerHeight - size - pad);
     const isOpen = widget.classList.contains("open");
+    const heroEl = document.getElementById("hero");
+    const roamCutoff = heroEl ? Math.max(360, heroEl.offsetHeight * 0.72) : Math.max(360, window.innerHeight * 0.65);
+    const isScrolledPastTop = window.scrollY > roamCutoff;
 
-    if (isOpen || prefersReduced) {
-      // Sohbet açıkken sağ alt köşedeki yuvasına yumuşakça yerleş
-      posX += (maxX - posX) * 0.18;
-      posY += (maxY - posY) * 0.18;
+    if (isOpen || prefersReduced || isScrolledPastTop) {
+      // Sayfa aşağı kaydırıldığında veya sohbet açıldığında sağ alt köşeye yumuşakça konumlan
+      posX += (maxX - posX) * 0.14;
+      posY += (maxY - posY) * 0.14;
+
+      if (tooltipEl) {
+        tooltipEl.style.top = "auto";
+        tooltipEl.style.bottom = "calc(100% + 12px)";
+        fab.classList.add("tooltip-right");
+        fab.classList.remove("tooltip-left");
+      }
+
+      if (isOpen || prefersReduced) {
+        fab.style.setProperty("--eye-x", "0px");
+        fab.style.setProperty("--eye-y", "0px");
+      } else {
+        const cx = posX + size / 2;
+        const cy = posY + size / 2;
+        const eyeX = Math.max(-2.6, Math.min(2.6, (mouseX - cx) / 90));
+        const eyeY = Math.max(-2.4, Math.min(2.4, (mouseY - cy) / 90));
+        fab.style.setProperty("--eye-x", `${eyeX.toFixed(2)}px`);
+        fab.style.setProperty("--eye-y", `${eyeY.toFixed(2)}px`);
+      }
+
       fab.style.transform = `translate3d(${posX.toFixed(1)}px, ${posY.toFixed(1)}px, 0) rotate(0deg)`;
-      fab.style.setProperty("--eye-x", "0px");
-      fab.style.setProperty("--eye-y", "0px");
       requestAnimationFrame(tick);
       return;
     }
