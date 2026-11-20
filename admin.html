@@ -815,17 +815,18 @@
               <img id="profPreview" class="upload-preview hidden" alt="Profil Önizleme" />
             </div>
 
-            <div class="field">
-              <span>Özgeçmiş / CV Dosyası (PDF — Opsiyonel)</span>
-              <div class="upload-box">
-                <input type="file" id="cvFile" accept="application/pdf,.pdf" class="hidden" />
-                <div class="image-btn-row">
-                  <button type="button" class="btn btn-ghost btn-sm" id="cvUploadBtn">+ PDF CV Yükle / Değiştir</button>
-                  <button type="button" class="btn btn-ghost btn-sm remove-img-btn hidden" id="cvRemoveBtn">CV'yi Kaldır</button>
-                  <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm hidden" id="cvPreviewLink">Mevcut CV'yi Gör ↗</a>
-                </div>
-                <input type="text" id="cvUrlInput" placeholder="Yüklenen PDF yolu (/uploads/...pdf) veya https://..." />
-              </div>
+            <div class="field-row">
+              <label class="field">
+                <span>Türkçe CV Linki (PDF veya URL)</span>
+                <input type="text" id="profCvTrInput" placeholder="/uploads/...pdf veya https://..." />
+              </label>
+              <label class="field">
+                <span>İngilizce CV Linki (PDF veya URL)</span>
+                <input type="text" id="profCvEnInput" placeholder="/uploads/...pdf veya https://..." />
+              </label>
+            </div>
+            <div style="margin-top: -6px;">
+              <a href="#cv" class="btn btn-ghost btn-sm" data-view="cv">PDF CV Yükle / Önizle (TR &amp; EN) →</a>
             </div>
             <label class="field">
               <span>İlgi Alanları (virgülle ayır)</span>
@@ -993,56 +994,84 @@
         </div>
       </section>
 
-      <!-- 11. ÖZEL CV / ÖZGEÇMİŞ YÖNETİM ALANI -->
+      <!-- 11. ÖZEL CV / ÖZGEÇMİŞ YÖNETİM ALANI (TR & EN) -->
       <section class="admin-view" id="view-cv">
         <div class="view-header">
           <div>
             <span class="section-tag">CV &amp; ÖZGEÇMİŞ YÖNETİMİ</span>
-            <h1>Özgeçmiş (PDF CV) Yükle, Değiştir &amp; Yayınla</h1>
-            <p class="view-desc">Buradan yüklediğin PDF dosyası anında sunucuya kaydedilir ve ana sitedeki Giriş ile Tanışalım bölümlerinde indirilebilir hale gelir.</p>
+            <h1>Türkçe &amp; İngilizce CV Yükle, Bağla &amp; Yayınla</h1>
+            <p class="view-desc">Ziyaretçiler ana sitede CV butonuna bastığında <strong>Türkçe CV</strong> ve <strong>İngilizce CV</strong> olarak 2 seçenek görür. Her iki dil için PDF yükleyebilir veya harici link tanımlayabilirsin.</p>
           </div>
         </div>
 
         <div class="admin-grid">
+          <!-- TÜRKÇE CV (TR) -->
           <div class="admin-panel-card">
-            <h2>CV Dosyasını Yükle / Değiştir</h2>
-            <p class="view-desc" style="margin-bottom: 16px;">Maksimum 12 MB boyutunda <code>.pdf</code> dosyası yükleyebilir veya harici bir CV bağlantısı tanımlayabilirsin.</p>
+            <div class="list-header">
+              <h2>Türkçe CV (TR)</h2>
+              <span class="mono-sub" id="cvTrPreviewState">Dosya bekleniyor</span>
+            </div>
 
             <div class="admin-form">
-              <div class="upload-box" id="cvDropZone" style="padding: 20px; border: 1.5px dashed var(--border-hover); border-radius: var(--radius-md); text-align: center;">
-                <input type="file" id="cvMainFile" accept="application/pdf,.pdf" class="hidden" />
-                <p class="mono-sub" id="cvMainStatusLabel" style="margin-bottom: 12px;">Henüz CV yüklenmedi.</p>
+              <div class="upload-box" id="cvTrDropZone" style="padding: 18px; border: 1.5px dashed var(--border-hover); border-radius: var(--radius-md); text-align: center;">
+                <input type="file" id="cvTrFile" accept="application/pdf,.pdf" class="hidden" />
+                <p class="mono-sub" id="cvTrStatusLabel" style="margin-bottom: 12px;">Henüz Türkçe CV yüklenmedi.</p>
                 <div class="image-btn-row" style="justify-content: center;">
-                  <button type="button" class="btn btn-primary" id="cvMainUploadBtn">+ PDF CV Seç ve Yayınla</button>
-                  <button type="button" class="btn btn-ghost remove-img-btn hidden" id="cvMainRemoveBtn">CV'yi Yayından Kaldır</button>
+                  <button type="button" class="btn btn-primary btn-sm" id="cvTrUploadBtn">+ Türkçe PDF Seç &amp; Yayınla</button>
+                  <button type="button" class="btn btn-ghost btn-sm remove-img-btn hidden" id="cvTrRemoveBtn">Kaldır</button>
                 </div>
               </div>
 
               <label class="field">
-                <span>Veya Harici PDF / Drive Bağlantısı</span>
+                <span>Türkçe CV Linki (/uploads/...pdf veya https://...)</span>
                 <div class="copy-row">
-                  <input type="text" id="cvMainUrlInput" placeholder="/uploads/...pdf veya https://..." />
-                  <button type="button" class="btn btn-ghost btn-sm" id="cvMainSaveUrlBtn">Bağlantıyı Kaydet</button>
+                  <input type="text" id="cvTrUrlInput" placeholder="/uploads/...pdf veya https://drive.google.com/..." />
+                  <button type="button" class="btn btn-ghost btn-sm" id="cvTrSaveUrlBtn">Kaydet</button>
                 </div>
               </label>
 
-              <div class="field-row hidden" id="cvMainActionsRow">
-                <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm" id="cvMainOpenLink">Yeni Sekmede Aç ↗</a>
-                <a href="#" class="btn btn-ghost btn-sm" id="cvMainDownloadLink">İndirmeyi Test Et ↓</a>
+              <div class="field-row hidden" id="cvTrActionsRow">
+                <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm" id="cvTrOpenLink">Yeni Sekmede Aç ↗</a>
+                <a href="#" class="btn btn-ghost btn-sm" id="cvTrDownloadLink">İndirmeyi Test Et ↓</a>
               </div>
+
+              <iframe id="cvTrPreviewFrame" class="hidden" title="Türkçe CV Önizleme" style="width: 100%; height: 360px; border: 1px solid var(--border); border-radius: var(--radius-md); background: #fff;"></iframe>
             </div>
           </div>
 
-          <aside class="admin-panel-card">
+          <!-- İNGİLİZCE CV (EN) -->
+          <div class="admin-panel-card">
             <div class="list-header">
-              <h2>Canlı CV Önizlemesi</h2>
-              <span class="mono-sub" id="cvPreviewState">Dosya bekleniyor</span>
+              <h2>İngilizce CV (EN)</h2>
+              <span class="mono-sub" id="cvEnPreviewState">Dosya bekleniyor</span>
             </div>
-            <div id="cvPreviewEmpty" style="padding: 40px 16px; text-align: center; border: 1px solid var(--border); border-radius: var(--radius-md);">
-              <p class="mono-sub">PDF CV yüklendiğinde önizlemesi burada görüntülenecek.</p>
+
+            <div class="admin-form">
+              <div class="upload-box" id="cvEnDropZone" style="padding: 18px; border: 1.5px dashed var(--border-hover); border-radius: var(--radius-md); text-align: center;">
+                <input type="file" id="cvEnFile" accept="application/pdf,.pdf" class="hidden" />
+                <p class="mono-sub" id="cvEnStatusLabel" style="margin-bottom: 12px;">Henüz İngilizce CV yüklenmedi.</p>
+                <div class="image-btn-row" style="justify-content: center;">
+                  <button type="button" class="btn btn-primary btn-sm" id="cvEnUploadBtn">+ İngilizce PDF Seç &amp; Yayınla</button>
+                  <button type="button" class="btn btn-ghost btn-sm remove-img-btn hidden" id="cvEnRemoveBtn">Kaldır</button>
+                </div>
+              </div>
+
+              <label class="field">
+                <span>İngilizce CV Linki (/uploads/...pdf veya https://...)</span>
+                <div class="copy-row">
+                  <input type="text" id="cvEnUrlInput" placeholder="/uploads/...pdf veya https://drive.google.com/..." />
+                  <button type="button" class="btn btn-ghost btn-sm" id="cvEnSaveUrlBtn">Kaydet</button>
+                </div>
+              </label>
+
+              <div class="field-row hidden" id="cvEnActionsRow">
+                <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm" id="cvEnOpenLink">Yeni Sekmede Aç ↗</a>
+                <a href="#" class="btn btn-ghost btn-sm" id="cvEnDownloadLink">İndirmeyi Test Et ↓</a>
+              </div>
+
+              <iframe id="cvEnPreviewFrame" class="hidden" title="İngilizce CV Önizleme" style="width: 100%; height: 360px; border: 1px solid var(--border); border-radius: var(--radius-md); background: #fff;"></iframe>
             </div>
-            <iframe id="cvPreviewFrame" class="hidden" title="CV Önizleme" style="width: 100%; height: 480px; border: 1px solid var(--border); border-radius: var(--radius-md); background: #fff;"></iframe>
-          </aside>
+          </div>
         </div>
       </section>
     </main>

@@ -241,21 +241,56 @@ function hydrateProfile(data) {
     }
   }
 
-  // PDF CV / Özgeçmiş bağlantıları
-  const cvUrl = (profile.cvUrl || "").trim();
+  // Türkçe ve İngilizce PDF CV bağlantıları (2 kare seçim + modal)
+  const cvTr = (profile.cvUrlTr || profile.cvUrl || "").trim();
+  const cvEn = (profile.cvUrlEn || "").trim();
+  const hasAnyCv = Boolean(cvTr || cvEn);
   const heroCvBtn = document.getElementById("heroCvBtn");
   const contactCvWrap = document.getElementById("contactCvWrap");
-  const contactCvViewBtn = document.getElementById("contactCvViewBtn");
-  const contactCvBtn = document.getElementById("contactCvBtn");
-  if (cvUrl) {
-    const dlUrl = cvUrl.includes("?") ? `${cvUrl}&download=1` : `${cvUrl}?download=1`;
-    if (heroCvBtn) {
-      heroCvBtn.href = dlUrl;
-      heroCvBtn.classList.remove("hidden");
+
+  function buildCvDownloadUrl(rawUrl, langCode) {
+    if (!rawUrl) return "#";
+    const isLocalPdf = rawUrl.startsWith("/") && rawUrl.toLowerCase().includes(".pdf");
+    if (!isLocalPdf) return rawUrl;
+    const sep = rawUrl.includes("?") ? "&" : "?";
+    return `${rawUrl}${sep}download=1&lang=${langCode}`;
+  }
+
+  function syncCvCard(cardId, viewId, dlId, emptyId, url, langCode) {
+    const card = document.getElementById(cardId);
+    const viewBtn = document.getElementById(viewId);
+    const dlBtn = document.getElementById(dlId);
+    const emptyEl = document.getElementById(emptyId);
+    if (!card) return;
+
+    if (url) {
+      card.classList.remove("is-unavailable");
+      if (viewBtn) viewBtn.href = url;
+      if (dlBtn) {
+        dlBtn.href = buildCvDownloadUrl(url, langCode);
+        if (!url.startsWith("/")) {
+          dlBtn.target = "_blank";
+          dlBtn.rel = "noopener noreferrer";
+        } else {
+          dlBtn.removeAttribute("target");
+        }
+      }
+      emptyEl?.classList.add("hidden");
+    } else {
+      card.classList.add("is-unavailable");
+      if (viewBtn) viewBtn.href = "#";
+      if (dlBtn) dlBtn.href = "#";
+      emptyEl?.classList.remove("hidden");
     }
-    if (contactCvWrap) contactCvWrap.classList.remove("hidden");
-    if (contactCvViewBtn) contactCvViewBtn.href = cvUrl;
-    if (contactCvBtn) contactCvBtn.href = dlUrl;
+  }
+
+  if (hasAnyCv) {
+    heroCvBtn?.classList.remove("hidden");
+    contactCvWrap?.classList.remove("hidden");
+    syncCvCard("contactCvCardTr", "contactCvTrView", "contactCvTrDownload", "contactCvTrEmpty", cvTr, "tr");
+    syncCvCard("contactCvCardEn", "contactCvEnView", "contactCvEnDownload", "contactCvEnEmpty", cvEn, "en");
+    syncCvCard("modalCvCardTr", "modalCvTrView", "modalCvTrDownload", "modalCvTrEmpty", cvTr, "tr");
+    syncCvCard("modalCvCardEn", "modalCvEnView", "modalCvEnDownload", "modalCvEnEmpty", cvEn, "en");
   } else {
     heroCvBtn?.classList.add("hidden");
     contactCvWrap?.classList.add("hidden");
@@ -658,6 +693,12 @@ function initModals(data) {
   document.getElementById("lightboxNext")?.addEventListener("click", () => {
     lightboxIndex = (lightboxIndex + 1) % currentVisibleEvents.length;
     updateLightbox(lightboxIndex);
+  });
+
+  // Open CV Choice Modal (2 Squares: TR & EN)
+  const cvModal = document.getElementById("cvModal");
+  document.getElementById("heroCvBtn")?.addEventListener("click", () => {
+    openModal(cvModal);
   });
 
   // Open YouTube Video
@@ -1513,7 +1554,7 @@ function initLanguageToggle(initialData) {
   let enData = null;
 
   const trStatic = {
-    heroCvBtnText: document.getElementById("heroCvBtnText")?.textContent || "CV İndir (PDF) ↓",
+    heroCvBtnText: document.getElementById("heroCvBtnText")?.textContent || "CV Görüntüle / İndir ↓",
     aboutTag: "01 / HAKKIMDA",
     credTag: "EĞİTİM, SERTİFİKA & YETKİNLİK",
     credTitlePrefix: "Akademik &",
@@ -1525,10 +1566,11 @@ function initLanguageToggle(initialData) {
     ideasSub: "OKUNABİLİR MAKALELER",
     socialTag: "05 / CANLI SOSYAL AKIŞ",
     contactTag: "06 / TANIŞALIM",
-    contactCvLabel: "ÖZGEÇMİŞ (PDF)",
-    contactCvTitle: "Güncel CV dosyamı tek tıkla inceleyebilir veya indirebilirsiniz.",
-    contactCvViewBtn: "Görüntüle ↗",
-    contactCvBtn: "PDF İndir ↓",
+    contactCvLabel: "ÖZGEÇMİŞ (PDF CV)",
+    contactCvTitle: "Türkçe veya İngilizce CV seçeneğini seçerek görüntüleyebilir ya da indirebilirsiniz.",
+    cvModalTag: "ÖZGEÇMİŞ SEÇENEKLERİ",
+    cvModalTitle: "Hangi dilde CV incelemek istersiniz?",
+    cvModalSub: "Aşağıdaki iki seçenekten Türkçe veya İngilizce CV'yi görüntüleyebilir ya da PDF olarak indirebilirsiniz.",
     msgFormTag: "HIZLI MESAJ & GÖRÜŞME TALEBİ",
     msgFormTitle: "Doğrudan not bırakın; mesajınız anında panelime ulaşır.",
     msgSubmitBtn: "Mesajı Gönder →",
@@ -1564,7 +1606,7 @@ function initLanguageToggle(initialData) {
     btn.textContent = isEn ? "TR" : "EN";
 
     const enStatic = {
-      heroCvBtnText: "Download CV (PDF) ↓",
+      heroCvBtnText: "View / Download CV ↓",
       aboutTag: "01 / ABOUT",
       credTag: "EDUCATION, CERTIFICATIONS & SKILLS",
       credTitlePrefix: "Academic &",
@@ -1577,9 +1619,10 @@ function initLanguageToggle(initialData) {
       socialTag: "05 / LIVE SOCIAL STREAM",
       contactTag: "06 / LET'S CONNECT",
       contactCvLabel: "CURRICULUM VITAE (PDF)",
-      contactCvTitle: "View or download my latest resume in one click.",
-      contactCvViewBtn: "Preview ↗",
-      contactCvBtn: "Download PDF ↓",
+      contactCvTitle: "Choose between the Turkish or English version to preview or download.",
+      cvModalTag: "RESUME OPTIONS",
+      cvModalTitle: "Which language CV would you like to view?",
+      cvModalSub: "Select Turkish or English below to preview in browser or download as PDF.",
       msgFormTag: "QUICK NOTE & INTERVIEW REQUEST",
       msgFormTitle: "Leave a note directly — it arrives straight in my inbox.",
       msgSubmitBtn: "Send Message →",
@@ -1587,6 +1630,14 @@ function initLanguageToggle(initialData) {
 
     const map = isEn ? enStatic : trStatic;
     Object.entries(map).forEach(([id, txt]) => setText(id, txt));
+
+    document.querySelectorAll("[data-cv-tr-title]").forEach((el) => { el.textContent = isEn ? "Turkish CV" : "Türkçe CV"; });
+    document.querySelectorAll("[data-cv-tr-desc]").forEach((el) => { el.textContent = isEn ? "Preview or download my latest resume in Turkish." : "Türkçe güncel özgeçmiş dosyasını incele veya indir."; });
+    document.querySelectorAll("[data-cv-en-title]").forEach((el) => { el.textContent = isEn ? "English CV" : "İngilizce CV"; });
+    document.querySelectorAll("[data-cv-en-desc]").forEach((el) => { el.textContent = isEn ? "Preview or download my latest resume in English." : "İngilizce güncel özgeçmiş (Resume) dosyasını incele veya indir."; });
+    document.querySelectorAll("[data-cv-view-label]").forEach((el) => { el.textContent = isEn ? "Preview ↗" : "Görüntüle ↗"; });
+    document.querySelectorAll("[data-cv-dl-label]").forEach((el) => { el.textContent = isEn ? "Download PDF ↓" : "PDF İndir ↓"; });
+    document.querySelectorAll("[data-cv-empty-label]").forEach((el) => { el.textContent = isEn ? "Coming soon" : "Yakında eklenecek"; });
 
     // Telefon & E-posta kart etiketleri
     const callBtn = document.getElementById("phoneCallBtn");

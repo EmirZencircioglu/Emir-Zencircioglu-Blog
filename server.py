@@ -270,7 +270,14 @@ def _build_portfolio_system_prompt(content: dict) -> str:
         f"- [{s.get('platformLabel', '')}] {s.get('title')} ({s.get('date', '')}): {s.get('excerpt', '')}"
         for s in social[:10]
     ]
-    cv_note = "Siteden PDF özgeçmiş (CV) indirilebilir." if profile.get("cvUrl") else ""
+    has_cv_tr = bool(profile.get("cvUrlTr") or profile.get("cvUrl"))
+    has_cv_en = bool(profile.get("cvUrlEn"))
+    if has_cv_tr and has_cv_en:
+        cv_note = "Siteden hem Türkçe hem İngilizce PDF özgeçmiş (CV) indirilebilir."
+    elif has_cv_tr or has_cv_en:
+        cv_note = "Siteden PDF özgeçmiş (CV) indirilebilir."
+    else:
+        cv_note = ""
 
     return (
         "Sen Emir Zencircioğlu'nun kişisel blog ve portfolyo sitesindeki resmi yapay zeka asistanısın ('Emir AI').\n"
@@ -2122,8 +2129,15 @@ class BlogHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", mime)
         self.send_header("Content-Length", str(len(data)))
         self.send_header("X-Content-Type-Options", "nosniff")
-        if target.suffix.lower() == ".pdf" and "download=1" in (urlparse(self.path).query or ""):
-            self.send_header("Content-Disposition", 'attachment; filename="Emir_Zencircioglu_CV.pdf"')
+        query_str = urlparse(self.path).query or ""
+        if target.suffix.lower() == ".pdf" and "download=1" in query_str:
+            if "lang=en" in query_str:
+                dl_name = "Emir_Zencircioglu_CV_EN.pdf"
+            elif "lang=tr" in query_str:
+                dl_name = "Emir_Zencircioglu_CV_TR.pdf"
+            else:
+                dl_name = "Emir_Zencircioglu_CV.pdf"
+            self.send_header("Content-Disposition", f'attachment; filename="{dl_name}"')
         self.end_headers()
         self.wfile.write(data)
 

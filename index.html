@@ -157,9 +157,9 @@
             <a href="#projects" class="btn btn-ghost magnetic" data-magnetic="0.2">
               <span id="heroCtaSecondaryText">Projeler & Zirveler</span>
             </a>
-            <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-ghost cv-btn hidden magnetic" id="heroCvBtn" data-magnetic="0.2">
-              <span id="heroCvBtnText">CV İndir (PDF) ↓</span>
-            </a>
+            <button type="button" class="btn btn-ghost cv-btn hidden magnetic" id="heroCvBtn" data-magnetic="0.2">
+              <span id="heroCvBtnText">CV Görüntüle / İndir ↓</span>
+            </button>
           </div>
 
           <!-- LIVE MARKET PULSE STRIP (FX REFERENCE) -->
@@ -373,15 +373,44 @@
             </div>
           </div>
 
-          <!-- CV DOWNLOAD BANNER (WHEN UPLOADED IN ADMIN) -->
-          <div class="contact-cv-bar hidden" id="contactCvWrap">
-            <div>
-              <span class="mono-sub" id="contactCvLabel">ÖZGEÇMİŞ (PDF)</span>
-              <strong id="contactCvTitle">Güncel CV dosyamı tek tıkla inceleyebilir veya indirebilirsiniz.</strong>
+          <!-- CV 2-SQUARE CHOICE SECTION (TR & EN) -->
+          <div class="contact-cv-section hidden" id="contactCvWrap">
+            <div class="contact-cv-head">
+              <span class="mono-sub" id="contactCvLabel">ÖZGEÇMİŞ (PDF CV)</span>
+              <strong id="contactCvTitle">Türkçe veya İngilizce CV seçeneğini seçerek görüntüleyebilir ya da indirebilirsiniz.</strong>
             </div>
-            <div class="contact-box-actions">
-              <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm magnetic" id="contactCvViewBtn" data-magnetic="0.18">Görüntüle ↗</a>
-              <a href="#" class="btn btn-gold btn-sm magnetic" id="contactCvBtn" data-magnetic="0.18">PDF İndir ↓</a>
+            <div class="cv-choice-grid">
+              <div class="cv-choice-card tilt-card" data-tilt="3" id="contactCvCardTr">
+                <div class="cv-choice-top">
+                  <span class="cv-lang-badge">TR</span>
+                  <span class="mono-sub cv-format-tag">PDF</span>
+                </div>
+                <div class="cv-choice-body">
+                  <h3 class="cv-choice-title" data-cv-tr-title>Türkçe CV</h3>
+                  <p class="cv-choice-desc" data-cv-tr-desc>Türkçe güncel özgeçmiş dosyasını incele veya indir.</p>
+                </div>
+                <div class="cv-choice-actions">
+                  <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm" id="contactCvTrView" data-cv-view-label>Görüntüle ↗</a>
+                  <a href="#" class="btn btn-gold btn-sm" id="contactCvTrDownload" data-cv-dl-label>PDF İndir ↓</a>
+                </div>
+                <span class="cv-empty-note hidden" id="contactCvTrEmpty" data-cv-empty-label>Yakında eklenecek</span>
+              </div>
+
+              <div class="cv-choice-card tilt-card" data-tilt="3" id="contactCvCardEn">
+                <div class="cv-choice-top">
+                  <span class="cv-lang-badge">EN</span>
+                  <span class="mono-sub cv-format-tag">PDF</span>
+                </div>
+                <div class="cv-choice-body">
+                  <h3 class="cv-choice-title" data-cv-en-title>İngilizce CV</h3>
+                  <p class="cv-choice-desc" data-cv-en-desc>İngilizce güncel özgeçmiş (Resume) dosyasını incele veya indir.</p>
+                </div>
+                <div class="cv-choice-actions">
+                  <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm" id="contactCvEnView" data-cv-view-label>Görüntüle ↗</a>
+                  <a href="#" class="btn btn-gold btn-sm" id="contactCvEnDownload" data-cv-dl-label>PDF İndir ↓</a>
+                </div>
+                <span class="cv-empty-note hidden" id="contactCvEnEmpty" data-cv-empty-label>Yakında eklenecek</span>
+              </div>
             </div>
           </div>
 
@@ -416,6 +445,50 @@
       </div>
     </footer>
   </main>
+
+  <!-- CV LANGUAGE CHOICE MODAL (2 SQUARES: TR & EN) -->
+  <div class="modal-backdrop" id="cvModal" aria-hidden="true">
+    <div class="modal-panel cv-modal-panel" role="dialog" aria-modal="true" aria-labelledby="cvModalTitle">
+      <button class="modal-close" data-close-modal aria-label="Kapat">✕</button>
+      <span class="section-tag" id="cvModalTag">ÖZGEÇMİŞ SEÇENEKLERİ</span>
+      <h2 class="cv-modal-title" id="cvModalTitle">Hangi dilde CV incelemek istersiniz?</h2>
+      <p class="cv-modal-sub" id="cvModalSub">Aşağıdaki iki seçenekten Türkçe veya İngilizce CV'yi görüntüleyebilir ya da PDF olarak indirebilirsiniz.</p>
+
+      <div class="cv-choice-grid">
+        <div class="cv-choice-card" id="modalCvCardTr">
+          <div class="cv-choice-top">
+            <span class="cv-lang-badge">TR</span>
+            <span class="mono-sub cv-format-tag">PDF</span>
+          </div>
+          <div class="cv-choice-body">
+            <h3 class="cv-choice-title" data-cv-tr-title>Türkçe CV</h3>
+            <p class="cv-choice-desc" data-cv-tr-desc>Türkçe güncel özgeçmiş dosyasını incele veya indir.</p>
+          </div>
+          <div class="cv-choice-actions">
+            <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm" id="modalCvTrView" data-cv-view-label>Görüntüle ↗</a>
+            <a href="#" class="btn btn-gold btn-sm" id="modalCvTrDownload" data-cv-dl-label>PDF İndir ↓</a>
+          </div>
+          <span class="cv-empty-note hidden" id="modalCvTrEmpty" data-cv-empty-label>Yakında eklenecek</span>
+        </div>
+
+        <div class="cv-choice-card" id="modalCvCardEn">
+          <div class="cv-choice-top">
+            <span class="cv-lang-badge">EN</span>
+            <span class="mono-sub cv-format-tag">PDF</span>
+          </div>
+          <div class="cv-choice-body">
+            <h3 class="cv-choice-title" data-cv-en-title>İngilizce CV</h3>
+            <p class="cv-choice-desc" data-cv-en-desc>İngilizce güncel özgeçmiş (Resume) dosyasını incele veya indir.</p>
+          </div>
+          <div class="cv-choice-actions">
+            <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm" id="modalCvEnView" data-cv-view-label>Görüntüle ↗</a>
+            <a href="#" class="btn btn-gold btn-sm" id="modalCvEnDownload" data-cv-dl-label>PDF İndir ↓</a>
+          </div>
+          <span class="cv-empty-note hidden" id="modalCvEnEmpty" data-cv-empty-label>Yakında eklenecek</span>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ARTICLE READER MODAL -->
   <div class="modal-backdrop" id="articleModal" aria-hidden="true">
