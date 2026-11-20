@@ -1657,10 +1657,10 @@ function initLanguageToggle(initialData) {
       socialTag: "05 / LIVE SOCIAL STREAM",
       contactTag: "06 / LET'S CONNECT",
       contactCvLabel: "CURRICULUM VITAE (PDF)",
-      contactCvTitle: "View or download my latest resume in one click.",
+      contactCvTitle: "View or download my latest CV in one click.",
       contactCvViewBtn: "View CV ↗",
       contactCvBtn: "Download PDF ↓",
-      cvModalTag: "RESUME OPTIONS",
+      cvModalTag: "CV OPTIONS",
       cvModalTitle: "Which language CV would you like to view?",
       cvModalSub: "Select Turkish or English below to preview in browser or download as PDF.",
       msgFormTag: "QUICK NOTE & INTERVIEW REQUEST",
@@ -1672,9 +1672,9 @@ function initLanguageToggle(initialData) {
     Object.entries(map).forEach(([id, txt]) => setText(id, txt));
 
     document.querySelectorAll("[data-cv-tr-title]").forEach((el) => { el.textContent = isEn ? "Turkish CV" : "Türkçe CV"; });
-    document.querySelectorAll("[data-cv-tr-desc]").forEach((el) => { el.textContent = isEn ? "Preview or download my latest resume in Turkish." : "Türkçe güncel özgeçmiş dosyasını incele veya indir."; });
+    document.querySelectorAll("[data-cv-tr-desc]").forEach((el) => { el.textContent = isEn ? "Preview or download my latest CV in Turkish." : "Türkçe güncel özgeçmiş dosyasını incele veya indir."; });
     document.querySelectorAll("[data-cv-en-title]").forEach((el) => { el.textContent = isEn ? "English CV" : "İngilizce CV"; });
-    document.querySelectorAll("[data-cv-en-desc]").forEach((el) => { el.textContent = isEn ? "Preview or download my latest resume in English." : "İngilizce güncel özgeçmiş (Resume) dosyasını incele veya indir."; });
+    document.querySelectorAll("[data-cv-en-desc]").forEach((el) => { el.textContent = isEn ? "Preview or download my latest CV in English." : "İngilizce güncel özgeçmiş dosyasını incele veya indir."; });
     document.querySelectorAll("[data-cv-view-label]").forEach((el) => { el.textContent = isEn ? "Preview ↗" : "Görüntüle ↗"; });
     document.querySelectorAll("[data-cv-dl-label]").forEach((el) => { el.textContent = isEn ? "Download PDF ↓" : "PDF İndir ↓"; });
     document.querySelectorAll("[data-cv-empty-label]").forEach((el) => { el.textContent = isEn ? "Coming soon" : "Yakında eklenecek"; });
