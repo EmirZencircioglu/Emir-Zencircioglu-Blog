@@ -117,6 +117,10 @@ img {
   max-width: 100%;
 }
 
+.hidden {
+  display: none !important;
+}
+
 .container {
   width: 100%;
   max-width: var(--container-max);
@@ -2587,18 +2591,20 @@ img {
   line-height: 1.55;
 }
 
-.contact-cv-section {
+.contact-cv-bar {
   margin-top: 22px;
-  padding: 24px;
-  border-radius: var(--radius-lg);
+  padding: 22px 26px;
+  border-radius: var(--radius-md);
   background: var(--bg-card);
   border: 1px solid var(--border);
   display: flex;
-  flex-direction: column;
-  gap: 18px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
 }
 
-.contact-cv-head strong {
+.contact-cv-bar strong {
   display: block;
   margin-top: 4px;
   font-size: 1.02rem;

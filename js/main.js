@@ -287,8 +287,6 @@ function hydrateProfile(data) {
   if (hasAnyCv) {
     heroCvBtn?.classList.remove("hidden");
     contactCvWrap?.classList.remove("hidden");
-    syncCvCard("contactCvCardTr", "contactCvTrView", "contactCvTrDownload", "contactCvTrEmpty", cvTr, "tr");
-    syncCvCard("contactCvCardEn", "contactCvEnView", "contactCvEnDownload", "contactCvEnEmpty", cvEn, "en");
     syncCvCard("modalCvCardTr", "modalCvTrView", "modalCvTrDownload", "modalCvTrEmpty", cvTr, "tr");
     syncCvCard("modalCvCardEn", "modalCvEnView", "modalCvEnDownload", "modalCvEnEmpty", cvEn, "en");
   } else {
@@ -697,9 +695,47 @@ function initModals(data) {
 
   // Open CV Choice Modal (2 Squares: TR & EN)
   const cvModal = document.getElementById("cvModal");
-  document.getElementById("heroCvBtn")?.addEventListener("click", () => {
+  function openCvModalWithMode(mode) {
+    const isEn = document.documentElement.getAttribute("data-lang") === "en";
+    const titleEl = document.getElementById("cvModalTitle");
+    const subEl = document.getElementById("cvModalSub");
+    const trView = document.getElementById("modalCvTrView");
+    const trDl = document.getElementById("modalCvTrDownload");
+    const enView = document.getElementById("modalCvEnView");
+    const enDl = document.getElementById("modalCvEnDownload");
+
+    if (mode === "view") {
+      if (titleEl) titleEl.textContent = isEn ? "Select CV Language to Preview" : "Görüntülemek istediğiniz CV dilini seçin";
+      if (subEl) subEl.textContent = isEn ? "Choose Turkish or English CV below to preview in a new tab." : "Türkçe veya İngilizce CV seçeneğine tıklayarak yeni sekmede inceleyebilirsiniz.";
+      trView?.classList.remove("hidden");
+      enView?.classList.remove("hidden");
+      trDl?.classList.add("hidden");
+      enDl?.classList.add("hidden");
+      trView?.classList.replace("btn-ghost", "btn-gold");
+      enView?.classList.replace("btn-ghost", "btn-gold");
+    } else if (mode === "download") {
+      if (titleEl) titleEl.textContent = isEn ? "Select CV Language to Download" : "İndirmek istediğiniz CV dilini seçin";
+      if (subEl) subEl.textContent = isEn ? "Choose Turkish or English CV below to download as PDF." : "Türkçe veya İngilizce CV seçeneğine tıklayarak PDF olarak indirebilirsiniz.";
+      trView?.classList.add("hidden");
+      enView?.classList.add("hidden");
+      trDl?.classList.remove("hidden");
+      enDl?.classList.remove("hidden");
+    } else {
+      if (titleEl) titleEl.textContent = isEn ? "Which language CV would you like to view?" : "Hangi dilde CV incelemek istersiniz?";
+      if (subEl) subEl.textContent = isEn ? "Select Turkish or English below to preview in browser or download as PDF." : "Aşağıdaki iki seçenekten Türkçe veya İngilizce CV'yi görüntüleyebilir ya da PDF olarak indirebilirsiniz.";
+      trView?.classList.remove("hidden");
+      enView?.classList.remove("hidden");
+      trDl?.classList.remove("hidden");
+      enDl?.classList.remove("hidden");
+      trView?.classList.replace("btn-gold", "btn-ghost");
+      enView?.classList.replace("btn-gold", "btn-ghost");
+    }
     openModal(cvModal);
-  });
+  }
+
+  document.getElementById("heroCvBtn")?.addEventListener("click", () => openCvModalWithMode("both"));
+  document.getElementById("contactCvViewBtn")?.addEventListener("click", () => openCvModalWithMode("view"));
+  document.getElementById("contactCvBtn")?.addEventListener("click", () => openCvModalWithMode("download"));
 
   // Open YouTube Video
   document.getElementById("socialGrid")?.addEventListener("click", (e) => {
@@ -1566,8 +1602,10 @@ function initLanguageToggle(initialData) {
     ideasSub: "OKUNABİLİR MAKALELER",
     socialTag: "05 / CANLI SOSYAL AKIŞ",
     contactTag: "06 / TANIŞALIM",
-    contactCvLabel: "ÖZGEÇMİŞ (PDF CV)",
-    contactCvTitle: "Türkçe veya İngilizce CV seçeneğini seçerek görüntüleyebilir ya da indirebilirsiniz.",
+    contactCvLabel: "ÖZGEÇMİŞ (PDF)",
+    contactCvTitle: "Güncel CV dosyamı tek tıkla inceleyebilir veya indirebilirsiniz.",
+    contactCvViewBtn: "CV Göster ↗",
+    contactCvBtn: "PDF İndir ↓",
     cvModalTag: "ÖZGEÇMİŞ SEÇENEKLERİ",
     cvModalTitle: "Hangi dilde CV incelemek istersiniz?",
     cvModalSub: "Aşağıdaki iki seçenekten Türkçe veya İngilizce CV'yi görüntüleyebilir ya da PDF olarak indirebilirsiniz.",
@@ -1619,7 +1657,9 @@ function initLanguageToggle(initialData) {
       socialTag: "05 / LIVE SOCIAL STREAM",
       contactTag: "06 / LET'S CONNECT",
       contactCvLabel: "CURRICULUM VITAE (PDF)",
-      contactCvTitle: "Choose between the Turkish or English version to preview or download.",
+      contactCvTitle: "View or download my latest resume in one click.",
+      contactCvViewBtn: "View CV ↗",
+      contactCvBtn: "Download PDF ↓",
       cvModalTag: "RESUME OPTIONS",
       cvModalTitle: "Which language CV would you like to view?",
       cvModalSub: "Select Turkish or English below to preview in browser or download as PDF.",
