@@ -582,6 +582,9 @@ function startEditingItem(section, id) {
     setVal("evPlace", item.place || "");
     setVal("evTitle", item.title || "");
     setVal("evDesc", item.description || "");
+    setVal("evLinkedinUrl", item.linkedinUrl || "");
+    setVal("evInstagramUrl", item.instagramUrl || "");
+    setVal("evOtherUrl", item.otherUrl || "");
     setVal("evImageUrl", item.image || "");
     syncImagePreview("evImageUrl", "evPreview", "evRemoveImgBtn");
   } else if (section === "projects") {
@@ -807,6 +810,9 @@ function initPublishForms() {
       place: val("evPlace"),
       title: val("evTitle"),
       description: val("evDesc"),
+      linkedinUrl: val("evLinkedinUrl") || null,
+      instagramUrl: val("evInstagramUrl") || null,
+      otherUrl: val("evOtherUrl") || null,
       image: val("evImageUrl") || null,
     };
     await publishItem("events", item, e.target, "evPreview", "evRemoveImgBtn");

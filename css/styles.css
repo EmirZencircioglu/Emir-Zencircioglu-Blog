@@ -1820,6 +1820,47 @@ img {
   font-size: 0.94rem;
 }
 
+.lightbox-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.event-social-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.event-social-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--brand);
+  background: rgba(7, 11, 10, 0.72);
+  border: 1px solid rgba(212, 175, 55, 0.42);
+  backdrop-filter: blur(8px);
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.event-card.no-image .event-social-chip {
+  background: var(--brand-soft);
+}
+
+.event-social-chip:hover {
+  background: var(--brand);
+  color: var(--accent-contrast);
+  border-color: var(--brand);
+  transform: translateY(-1px);
+}
+
 .lightbox-nav {
   display: flex;
   justify-content: flex-end;

@@ -402,6 +402,38 @@ function renderProjects(projects) {
    ========================================================================== */
 let currentVisibleEvents = [];
 
+function getEventSocialLinks(ev) {
+  const isEn = document.documentElement.getAttribute("data-lang") === "en";
+  const links = [];
+  if (ev.linkedinUrl) {
+    links.push({
+      label: "LinkedIn",
+      cta: isEn ? "View on LinkedIn ↗" : "LinkedIn'de Gör ↗",
+      url: ev.linkedinUrl,
+    });
+  }
+  if (ev.instagramUrl) {
+    links.push({
+      label: "Instagram",
+      cta: isEn ? "View on Instagram ↗" : "Instagram'da Gör ↗",
+      url: ev.instagramUrl,
+    });
+  }
+  if (ev.otherUrl) {
+    const low = String(ev.otherUrl).toLowerCase();
+    let label = isEn ? "Post" : "Paylaşım";
+    if (low.includes("youtube.com") || low.includes("youtu.be")) label = "YouTube";
+    else if (low.includes("x.com") || low.includes("twitter.com")) label = "X";
+    else if (low.includes("github.com")) label = "GitHub";
+    links.push({
+      label,
+      cta: isEn ? `View on ${label} ↗` : `${label} Linkini Gör ↗`,
+      url: ev.otherUrl,
+    });
+  }
+  return links;
+}
+
 function renderEvents(events, filter) {
   const grid = document.getElementById("eventsGrid");
   if (!grid) return;
@@ -411,6 +443,16 @@ function renderEvents(events, filter) {
   grid.innerHTML = currentVisibleEvents
     .map((ev, idx) => {
       const hasImage = Boolean(ev.image);
+      const socialLinks = getEventSocialLinks(ev);
+      const linksHtml = socialLinks.length
+        ? `<div class="event-social-links">${socialLinks
+            .map(
+              (l) =>
+                `<a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer" class="event-social-chip">${escapeHtml(l.label)} ↗</a>`
+            )
+            .join("")}</div>`
+        : "";
+
       if (hasImage) {
         return `
           <article class="event-card tilt-card has-image" data-tilt="4" data-cursor="Gör" data-event-index="${idx}" style="animation-delay: ${idx * 0.06}s">
@@ -419,6 +461,7 @@ function renderEvents(events, filter) {
               <span class="event-place">${escapeHtml(ev.place)} · ${escapeHtml(ev.categoryLabel)}</span>
               <h3 class="event-title">${escapeHtml(ev.title)}</h3>
               <span class="event-date">${escapeHtml(ev.date)}</span>
+              ${linksHtml}
             </div>
           </article>
         `;
@@ -433,7 +476,10 @@ function renderEvents(events, filter) {
             <h3>${escapeHtml(ev.title)}</h3>
             <p>${escapeHtml(ev.description)}</p>
           </div>
-          <span class="mono-sub">📍 ${escapeHtml(ev.place)}</span>
+          <div>
+            <span class="mono-sub">📍 ${escapeHtml(ev.place)}</span>
+            ${linksHtml}
+          </div>
         </article>
       `;
     })
@@ -646,6 +692,7 @@ function initModals(data) {
 
   // Open Photo Lightbox
   document.getElementById("eventsGrid")?.addEventListener("click", (e) => {
+    if (e.target.closest("a")) return;
     const card = e.target.closest(".event-card");
     if (!card) return;
     lightboxIndex = Number(card.dataset.eventIndex) || 0;
@@ -680,6 +727,22 @@ function initModals(data) {
     const tags = document.getElementById("lightboxTags");
     if (tags) {
       tags.innerHTML = `<span class="tag-chip">${escapeHtml(item.place)}</span> <span class="tag-chip">${escapeHtml(item.date)}</span>`;
+    }
+    const linksWrap = document.getElementById("lightboxLinks");
+    if (linksWrap) {
+      const socialLinks = getEventSocialLinks(item);
+      if (socialLinks.length) {
+        linksWrap.innerHTML = socialLinks
+          .map(
+            (l) =>
+              `<a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-gold btn-sm">${escapeHtml(l.cta)}</a>`
+          )
+          .join("");
+        linksWrap.classList.remove("hidden");
+      } else {
+        linksWrap.innerHTML = "";
+        linksWrap.classList.add("hidden");
+      }
     }
   }
 
