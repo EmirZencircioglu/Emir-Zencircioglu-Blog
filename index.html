@@ -461,6 +461,21 @@
     </div>
   </div>
 
+  <!-- PROJECT DETAIL MODAL -->
+  <div class="modal-backdrop" id="projectModal" aria-hidden="true">
+    <div class="modal-panel project-modal-panel" role="dialog" aria-modal="true" aria-labelledby="modalProjectTitle">
+      <button class="modal-close" data-close-modal aria-label="Kapat">✕</button>
+      <div class="project-top" id="modalProjectMeta"></div>
+      <h2 class="project-modal-title" id="modalProjectTitle"></h2>
+      <div class="project-modal-cover hidden" id="modalProjectCoverWrap">
+        <img id="modalProjectCover" src="" alt="" />
+      </div>
+      <p class="project-modal-desc" id="modalProjectDesc"></p>
+      <div class="project-modal-stack" id="modalProjectStack"></div>
+      <div class="project-modal-actions" id="modalProjectLinks"></div>
+    </div>
+  </div>
+
   <!-- ARTICLE READER MODAL -->
   <div class="modal-backdrop" id="articleModal" aria-hidden="true">
     <div class="modal-panel article-panel" id="articlePanel" role="dialog" aria-modal="true">

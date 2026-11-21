@@ -366,29 +366,37 @@ function renderMarquee(items) {
 function renderProjects(projects) {
   const grid = document.getElementById("projectsGrid");
   if (!grid) return;
+  const isEn = document.documentElement.getAttribute("data-lang") === "en";
+  const readMoreLabel = isEn ? "Read details →" : "Detayları oku →";
+  const liveLabel = isEn ? "Live Preview ↗" : "Canlı Önizleme ↗";
 
   grid.innerHTML = projects
     .map((proj, idx) => {
       const num = String(idx + 1).padStart(2, "0");
+      const stackList = Array.isArray(proj.stack) ? proj.stack : [];
+      const visibleStack = stackList.slice(0, 4);
+      const extraCount = stackList.length - visibleStack.length;
+
       return `
-      <article class="project-card tilt-card reveal-up" data-tilt="4" data-cursor="Aç" style="--delay: ${idx * 0.08}s">
+      <article class="project-card tilt-card reveal-up" data-tilt="4" data-cursor="Oku" data-project-index="${idx}" style="--delay: ${idx * 0.08}s">
         <span class="project-index" aria-hidden="true">${num}</span>
         <div>
           <div class="project-top">
             <span class="project-year">${escapeHtml(proj.year)}</span>
             <span class="project-status">${escapeHtml(proj.status)}</span>
           </div>
-          <h3 class="project-title" style="margin-top: 16px;">${escapeHtml(proj.title)}</h3>
+          <h3 class="project-title" style="margin-top: 8px;">${escapeHtml(proj.title)}</h3>
           <p class="project-desc">${escapeHtml(proj.description)}</p>
-          ${proj.image ? `<div class="project-cover"><img src="${escapeHtml(proj.image)}" alt="${escapeHtml(proj.title)}" loading="lazy" /></div>` : ""}
+          <span class="project-read-more">${readMoreLabel}</span>
         </div>
         <div>
-          <div class="project-stack" style="margin-bottom: 18px;">
-            ${(proj.stack || []).map((tech) => `<span class="tag-chip">${escapeHtml(tech)}</span>`).join("")}
+          <div class="project-stack" style="margin-bottom: 14px;">
+            ${visibleStack.map((tech) => `<span class="tag-chip">${escapeHtml(tech)}</span>`).join("")}
+            ${extraCount > 0 ? `<span class="tag-chip">+${extraCount}</span>` : ""}
           </div>
           <div class="project-links">
             ${proj.githubUrl && proj.githubUrl !== "#" ? `<a href="${escapeHtml(proj.githubUrl)}" target="_blank" rel="noopener noreferrer">GitHub ↗</a>` : ""}
-            ${proj.liveUrl && proj.liveUrl !== "#" ? `<a href="${escapeHtml(proj.liveUrl)}" target="_blank" rel="noopener noreferrer">${document.documentElement.getAttribute("data-lang") === "en" ? "Live Preview ↗" : "Canlı Önizleme ↗"}</a>` : ""}
+            ${proj.liveUrl && proj.liveUrl !== "#" ? `<a href="${escapeHtml(proj.liveUrl)}" target="_blank" rel="noopener noreferrer">${liveLabel}</a>` : ""}
           </div>
         </div>
       </article>
@@ -672,6 +680,60 @@ function initModals(data) {
     const max = articlePanel.scrollHeight - articlePanel.clientHeight;
     const pct = max > 0 ? (articlePanel.scrollTop / max) * 100 : 0;
     readingBar.style.width = `${pct}%`;
+  });
+
+  // Open Project Detail Modal
+  const projectModal = document.getElementById("projectModal");
+  document.getElementById("projectsGrid")?.addEventListener("click", (e) => {
+    if (e.target.closest("a")) return;
+    const card = e.target.closest(".project-card");
+    if (!card) return;
+    const idx = Number(card.dataset.projectIndex);
+    const projects = (window.__APP_DATA || data).projects || [];
+    const proj = projects[idx];
+    if (!proj) return;
+
+    const isEn = document.documentElement.getAttribute("data-lang") === "en";
+    const metaEl = document.getElementById("modalProjectMeta");
+    if (metaEl) {
+      metaEl.innerHTML = `<span class="project-year">${escapeHtml(proj.year)}</span> <span class="project-status">${escapeHtml(proj.status)}</span>`;
+    }
+    setText("modalProjectTitle", proj.title);
+    setText("modalProjectDesc", proj.description);
+
+    const coverWrap = document.getElementById("modalProjectCoverWrap");
+    const coverImg = document.getElementById("modalProjectCover");
+    if (coverWrap && coverImg) {
+      if (proj.image) {
+        coverImg.src = proj.image;
+        coverImg.alt = proj.title || "";
+        coverWrap.classList.remove("hidden");
+      } else {
+        coverImg.removeAttribute("src");
+        coverWrap.classList.add("hidden");
+      }
+    }
+
+    const stackWrap = document.getElementById("modalProjectStack");
+    if (stackWrap) {
+      stackWrap.innerHTML = (proj.stack || [])
+        .map((tech) => `<span class="tag-chip">${escapeHtml(tech)}</span>`)
+        .join("");
+    }
+
+    const linksWrap = document.getElementById("modalProjectLinks");
+    if (linksWrap) {
+      const btns = [];
+      if (proj.githubUrl && proj.githubUrl !== "#") {
+        btns.push(`<a href="${escapeHtml(proj.githubUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-gold btn-sm">GitHub ↗</a>`);
+      }
+      if (proj.liveUrl && proj.liveUrl !== "#") {
+        btns.push(`<a href="${escapeHtml(proj.liveUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm">${isEn ? "Live Preview ↗" : "Canlı Önizleme ↗"}</a>`);
+      }
+      linksWrap.innerHTML = btns.join("");
+    }
+
+    openModal(projectModal);
   });
 
   // Open Article
