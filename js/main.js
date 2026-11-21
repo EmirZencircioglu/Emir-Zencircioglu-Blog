@@ -466,8 +466,10 @@ function renderEvents(events, filter) {
           </article>
         `;
       }
+      const isEn = document.documentElement.getAttribute("data-lang") === "en";
+      const readHint = isEn ? "Read full →" : "Devamını oku →";
       return `
-        <article class="event-card tilt-card no-image" data-tilt="4" data-cursor="Gör" data-event-index="${idx}" style="animation-delay: ${idx * 0.06}s">
+        <article class="event-card tilt-card no-image" data-tilt="4" data-cursor="Oku" data-event-index="${idx}" style="animation-delay: ${idx * 0.06}s">
           <div class="event-text-top">
             <span class="event-cat-pill">${escapeHtml(ev.categoryLabel)}</span>
             <span class="social-date">${escapeHtml(ev.date)}</span>
@@ -476,8 +478,11 @@ function renderEvents(events, filter) {
             <h3>${escapeHtml(ev.title)}</h3>
             <p>${escapeHtml(ev.description)}</p>
           </div>
-          <div>
-            <span class="mono-sub">📍 ${escapeHtml(ev.place)}</span>
+          <div class="event-card-foot">
+            <div class="event-foot-meta">
+              <span class="mono-sub">📍 ${escapeHtml(ev.place)}</span>
+              <span class="event-read-hint">${readHint}</span>
+            </div>
             ${linksHtml}
           </div>
         </article>
