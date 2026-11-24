@@ -1294,11 +1294,21 @@ function renderAnalyticsLists(topQuestions, recentLogs) {
       topWrap.innerHTML = topQuestions
         .map(
           (q) => `
-          <div class="admin-item-row">
+          <div class="admin-item-row chat-log-row">
             <div class="admin-item-info">
-              <div class="admin-item-title">${escapeHtml(q.question)}</div>
+              <div class="chat-log-head">
+                <div class="admin-item-title">${escapeHtml(q.question)}</div>
+                <span class="tag-chip">${q.count}×</span>
+              </div>
+              ${
+                q.latestAnswer
+                  ? `<details class="chat-log-details">
+                      <summary>Son Cevabı Gör</summary>
+                      <div class="chat-log-answer">${escapeHtml(q.latestAnswer)}</div>
+                    </details>`
+                  : ""
+              }
             </div>
-            <span class="tag-chip">${q.count}×</span>
           </div>
         `
         )
@@ -1312,16 +1322,26 @@ function renderAnalyticsLists(topQuestions, recentLogs) {
       recentWrap.innerHTML = `<p class="mono-sub">Henüz sohbet kaydı yok.</p>`;
     } else {
       recentWrap.innerHTML = recentLogs
-        .map(
-          (r) => `
-          <div class="admin-item-row">
+        .map((r) => {
+          const hasAnswer = Boolean(r.answer && String(r.answer).trim());
+          const summaryLabel = r.ok ? "Emir AI Cevabını Gör" : "Hata Detayını Gör";
+          return `
+          <div class="admin-item-row chat-log-row ${r.ok ? "" : "is-error"}">
             <div class="admin-item-info">
               <div class="admin-item-title">${escapeHtml(r.question)}</div>
               <div class="admin-item-meta">${escapeHtml(r.createdAt || "")} · ${escapeHtml(r.model || "-")} · ${r.ok ? "Yanıtlandı" : "Hata"}</div>
+              ${
+                hasAnswer
+                  ? `<details class="chat-log-details">
+                      <summary>${summaryLabel}</summary>
+                      <div class="chat-log-answer ${r.ok ? "" : "is-error"}">${escapeHtml(r.answer)}</div>
+                    </details>`
+                  : `<div class="chat-log-missing">Önceki kayıt — cevap saklanmamış.</div>`
+              }
             </div>
           </div>
-        `
-        )
+        `;
+        })
         .join("");
     }
   }

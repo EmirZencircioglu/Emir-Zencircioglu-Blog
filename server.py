@@ -347,11 +347,17 @@ def load_chat_logs() -> list:
             return []
 
 
-def append_chat_log(question: str, model_used: str | None, ok: bool):
+def append_chat_log(
+    question: str,
+    model_used: str | None,
+    ok: bool,
+    answer: str | None = None,
+):
     ensure_dirs()
     entry = {
         "id": f"cl-{uuid.uuid4().hex[:8]}",
-        "question": str(question or "").strip()[:320],
+        "question": str(question or "").strip()[:500],
+        "answer": str(answer or "").strip()[:3000],
         "model": model_used or "",
         "ok": bool(ok),
         "createdAt": datetime.now(TR_TZ).strftime("%d.%m.%Y %H:%M"),
@@ -1311,12 +1317,21 @@ class BlogHandler(BaseHTTPRequestHandler):
                 return
             logs = load_chat_logs()
             q_counts: dict[str, int] = {}
+            q_latest_answer: dict[str, str] = {}
             for row in logs:
                 q_text = str(row.get("question") or "").strip()
                 if q_text:
                     q_counts[q_text] = q_counts.get(q_text, 0) + 1
+                    if q_text not in q_latest_answer:
+                        ans = str(row.get("answer") or "").strip()
+                        if ans:
+                            q_latest_answer[q_text] = ans
             top_questions = [
-                {"question": q, "count": cnt}
+                {
+                    "question": q,
+                    "count": cnt,
+                    "latestAnswer": q_latest_answer.get(q, ""),
+                }
                 for q, cnt in sorted(q_counts.items(), key=lambda x: -x[1])[:8]
             ]
             self._send_json(
@@ -1549,13 +1564,13 @@ class BlogHandler(BaseHTTPRequestHandler):
             try:
                 system_prompt = _build_portfolio_system_prompt(load_content())
                 reply = call_gemini_api(api_key, system_prompt, history, message)
-                append_chat_log(message, _get_working_gemini_model(), True)
+                append_chat_log(message, _get_working_gemini_model(), True, answer=reply)
                 self._send_json(200, {"ok": True, "reply": reply})
             except RuntimeError as e:
-                append_chat_log(message, None, False)
+                append_chat_log(message, None, False, answer=str(e))
                 self._send_json(502, {"error": str(e)})
             except Exception as e:
-                append_chat_log(message, None, False)
+                append_chat_log(message, None, False, answer=str(e))
                 self._send_json(500, {"error": f"Sohbet yanıtı alınamadı: {e}"})
             return
 
