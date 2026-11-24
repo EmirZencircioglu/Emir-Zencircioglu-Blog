@@ -357,7 +357,7 @@ def append_chat_log(
     entry = {
         "id": f"cl-{uuid.uuid4().hex[:8]}",
         "question": str(question or "").strip()[:500],
-        "answer": str(answer or "").strip()[:3000],
+        "answer": str(answer or "").strip()[:8000],
         "model": model_used or "",
         "ok": bool(ok),
         "createdAt": datetime.now(TR_TZ).strftime("%d.%m.%Y %H:%M"),
@@ -515,9 +515,14 @@ def _try_gemini_model(api_key: str, model: str, payload_bytes: bytes, fallback_b
         candidates = data.get("candidates") or []
         if candidates:
             parts = (candidates[0].get("content") or {}).get("parts") or []
-            reply_text = "".join(str(p.get("text", "")) for p in parts).strip()
+            visible_parts = [p for p in parts if not p.get("thought")]
+            reply_text = "".join(str(p.get("text", "")) for p in (visible_parts or parts)).strip()
+            finish_reason = candidates[0].get("finishReason") or ""
             if reply_text:
-                print(f"[Gemini success] model={model}", flush=True)
+                print(
+                    f"[Gemini success] model={model} finishReason={finish_reason} chars={len(reply_text)}",
+                    flush=True,
+                )
                 return reply_text, None, False
         _set_model_cooldown(model, 45)
         return None, f"Model boş yanıt döndürdü ({model}).", True
@@ -634,7 +639,7 @@ def call_gemini_api(api_key: str, system_prompt: str, history: list, user_messag
         {
             "systemInstruction": {"parts": [{"text": system_prompt}]},
             "contents": contents,
-            "generationConfig": {"temperature": 0.65, "maxOutputTokens": 650},
+            "generationConfig": {"temperature": 0.65, "maxOutputTokens": 4096},
         },
         ensure_ascii=False,
     ).encode("utf-8")
@@ -646,12 +651,12 @@ def call_gemini_api(api_key: str, system_prompt: str, history: list, user_messag
     fallback_bytes = json.dumps(
         {
             "contents": fallback_contents,
-            "generationConfig": {"temperature": 0.65, "maxOutputTokens": 650},
+            "generationConfig": {"temperature": 0.65, "maxOutputTokens": 4096},
         },
         ensure_ascii=False,
     ).encode("utf-8")
 
-    return _run_gemini_with_failover(api_key, payload_bytes, fallback_bytes, timeout_sec=7, budget_sec=18)
+    return _run_gemini_with_failover(api_key, payload_bytes, fallback_bytes, timeout_sec=12, budget_sec=24)
 
 
 def _extract_translatable_payload(content: dict) -> dict:
