@@ -564,21 +564,28 @@ def _run_gemini_with_failover(
     api_key: str,
     payload_bytes: bytes,
     fallback_bytes: bytes,
-    timeout_sec: float = 7,
-    budget_sec: float = 18,
+    timeout_sec: float = 12,
+    budget_sec: float = 24,
+    max_attempts: int = 4,
 ) -> str:
+    """Ücretsiz katman kotasını koruyarak sıralı (tekil) model failover uygular."""
     global _CACHED_GEMINI_MODEL
     last_error = "Gemini servisine bağlanılamadı."
     start_ts = time.monotonic()
+    attempts = 0
+    quota_hits = 0
 
     cached_model = _get_working_gemini_model()
     if cached_model and not _is_model_cooled_down(cached_model):
+        attempts += 1
         reply_text, err_msg, _ = _try_gemini_model(api_key, cached_model, payload_bytes, fallback_bytes, timeout_sec)
         if reply_text:
             _save_working_gemini_model(cached_model)
             return reply_text
         if err_msg:
             last_error = err_msg
+            if "(429)" in err_msg:
+                quota_hits += 1
         with _MODEL_STATE_LOCK:
             if _CACHED_GEMINI_MODEL == cached_model:
                 _CACHED_GEMINI_MODEL = None
@@ -587,38 +594,22 @@ def _run_gemini_with_failover(
     pool = discovered if discovered else list(GEMINI_MODELS)
     active_pool = [m for m in pool if m and m != cached_model and not _is_model_cooled_down(m)]
     if not active_pool:
-        active_pool = [m for m in pool if m and m != cached_model][:8]
+        active_pool = [m for m in pool if m and m != cached_model][:max(1, max_attempts - attempts)]
 
-    for i in range(0, len(active_pool), 4):
-        if time.monotonic() - start_ts > budget_sec:
+    for model_name in active_pool:
+        if attempts >= max_attempts or time.monotonic() - start_ts > budget_sec:
             break
-        batch = active_pool[i:i + 4]
-        executor = ThreadPoolExecutor(max_workers=len(batch))
-        try:
-            futures = {
-                executor.submit(_try_gemini_model, api_key, m, payload_bytes, fallback_bytes, timeout_sec): m
-                for m in batch
-            }
-            pending = set(futures.keys())
-            while pending:
-                done, pending = wait(pending, return_when=FIRST_COMPLETED, timeout=timeout_sec + 1)
-                if not done:
-                    break
-                for fut in done:
-                    model_name = futures[fut]
-                    try:
-                        reply_text, err_msg, _ = fut.result()
-                    except RuntimeError:
-                        raise
-                    except Exception as e:
-                        reply_text, err_msg = None, str(e)
-                    if reply_text:
-                        _save_working_gemini_model(model_name)
-                        return reply_text
-                    if err_msg:
-                        last_error = err_msg
-        finally:
-            executor.shutdown(wait=False, cancel_futures=True)
+        if quota_hits >= 2:
+            break
+        attempts += 1
+        reply_text, err_msg, _ = _try_gemini_model(api_key, model_name, payload_bytes, fallback_bytes, timeout_sec)
+        if reply_text:
+            _save_working_gemini_model(model_name)
+            return reply_text
+        if err_msg:
+            last_error = err_msg
+            if "(429)" in err_msg:
+                quota_hits += 1
 
     raise RuntimeError(f"Tüm Gemini modelleri şu anda yoğun. Lütfen birkaç saniye sonra tekrar deneyin. ({last_error})")
 
@@ -813,7 +804,14 @@ def get_english_translation() -> tuple[dict | None, bool]:
             ensure_ascii=False,
         ).encode("utf-8")
 
-        raw_reply = _run_gemini_with_failover(api_key, payload_bytes, fallback_bytes, timeout_sec=16, budget_sec=24)
+        raw_reply = _run_gemini_with_failover(
+            api_key,
+            payload_bytes,
+            fallback_bytes,
+            timeout_sec=16,
+            budget_sec=28,
+            max_attempts=2,
+        )
         cleaned = raw_reply.strip()
         if cleaned.startswith("```"):
             cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", cleaned, flags=re.IGNORECASE | re.DOTALL).strip()
@@ -832,7 +830,15 @@ def get_english_translation() -> tuple[dict | None, bool]:
         return _merge_translated_payload(content, translated_dict), False
 
 
+_LAST_PREWARM_TS = 0.0
+
+
 def _prewarm_en_translation():
+    global _LAST_PREWARM_TS
+    now_ts = time.time()
+    if now_ts - _LAST_PREWARM_TS < 120:
+        return
+    _LAST_PREWARM_TS = now_ts
     try:
         get_english_translation()
     except Exception as e:

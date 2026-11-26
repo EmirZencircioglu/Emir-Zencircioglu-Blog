@@ -1,5 +1,13 @@
+.env
+.env.*
+*.key
+*.pem
+*secret*.json
 data/admin_secret.json
 data/linkedin_config.json
+data/chat_logs.json
+data/messages.json
+data/translation_en.json
 data/*.tmp
 __pycache__/
 *.pyc
