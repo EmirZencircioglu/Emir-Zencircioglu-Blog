@@ -458,6 +458,33 @@ function updateOverviewCounts(content) {
   setText("countCvStatus", cvLabel);
 }
 
+let REORDER_BUSY = false;
+
+async function persistSectionOrder(section, orderedIds, listEl) {
+  if (REORDER_BUSY) return;
+  REORDER_BUSY = true;
+  const prevScroll = listEl ? listEl.scrollTop : 0;
+  try {
+    const res = await fetch("/api/admin/reorder", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ section, ids: orderedIds }),
+    });
+    if (res.ok) {
+      showToast("Sıralama güncellendi.");
+      await loadAdminContent();
+      if (listEl) listEl.scrollTop = prevScroll;
+    } else {
+      const data = await res.json().catch(() => ({}));
+      showToast(data.error || "Sıralama kaydedilemedi.", true);
+    }
+  } catch {
+    showToast("Sıralama kaydedilirken bağlantı hatası oluştu.", true);
+  } finally {
+    REORDER_BUSY = false;
+  }
+}
+
 function renderSectionList(containerId, countId, section, items, metaFormatter, unitLabel) {
   const list = document.getElementById(containerId);
   const countEl = document.getElementById(countId);
@@ -471,13 +498,21 @@ function renderSectionList(containerId, countId, section, items, metaFormatter, 
 
   list.innerHTML = items
     .map(
-      (item) => `
-      <div class="admin-item-row" data-row-id="${escapeHtml(item.id)}">
+      (item, index) => `
+      <div class="admin-item-row reorderable" draggable="true" data-section="${escapeHtml(section)}" data-row-id="${escapeHtml(item.id)}">
+        <span class="drag-handle" title="Sürükleyerek sırayı değiştir" aria-hidden="true">⋮⋮</span>
+        <span class="item-order-num">${index + 1}</span>
         <div class="admin-item-info">
           <div class="admin-item-title">${escapeHtml(item.title)}</div>
           <div class="admin-item-meta">${escapeHtml(metaFormatter(item))}</div>
         </div>
         <div class="item-actions">
+          <button type="button" class="order-btn" data-move-section="${escapeHtml(section)}" data-move-id="${escapeHtml(item.id)}" data-move-dir="-1" title="Yukarı taşı" aria-label="Yukarı taşı" ${index === 0 ? "disabled" : ""}>
+            ↑
+          </button>
+          <button type="button" class="order-btn" data-move-section="${escapeHtml(section)}" data-move-id="${escapeHtml(item.id)}" data-move-dir="1" title="Aşağı taşı" aria-label="Aşağı taşı" ${index === items.length - 1 ? "disabled" : ""}>
+            ↓
+          </button>
           <button type="button" class="edit-btn" data-edit-section="${escapeHtml(section)}" data-edit-id="${escapeHtml(item.id)}">
             Düzenle
           </button>
@@ -489,6 +524,85 @@ function renderSectionList(containerId, countId, section, items, metaFormatter, 
     `
     )
     .join("");
+
+  // Yukarı / Aşağı butonları ile sıralama
+  list.querySelectorAll("[data-move-id]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const targetId = btn.dataset.moveId;
+      const dir = Number(btn.dataset.moveDir);
+      const currentIds = items.map((x) => x.id);
+      const idx = currentIds.indexOf(targetId);
+      const swapIdx = idx + dir;
+      if (idx < 0 || swapIdx < 0 || swapIdx >= currentIds.length) return;
+      [currentIds[idx], currentIds[swapIdx]] = [currentIds[swapIdx], currentIds[idx]];
+      await persistSectionOrder(section, currentIds, list);
+    });
+  });
+
+  // Sürükle-bırak (Drag & Drop) ile sıralama
+  let draggedId = null;
+  const rows = list.querySelectorAll(".admin-item-row.reorderable");
+  const clearDropMarks = () => {
+    rows.forEach((r) => r.classList.remove("drag-over-top", "drag-over-bottom"));
+  };
+
+  rows.forEach((row) => {
+    row.addEventListener("dragstart", (e) => {
+      if (e.target.closest("button")) {
+        e.preventDefault();
+        return;
+      }
+      draggedId = row.dataset.rowId;
+      row.classList.add("dragging");
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", draggedId || "");
+      }
+    });
+
+    row.addEventListener("dragover", (e) => {
+      if (!draggedId || draggedId === row.dataset.rowId) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+      const rect = row.getBoundingClientRect();
+      const isAfter = e.clientY > rect.top + rect.height / 2;
+      clearDropMarks();
+      row.classList.add(isAfter ? "drag-over-bottom" : "drag-over-top");
+    });
+
+    row.addEventListener("dragleave", () => {
+      row.classList.remove("drag-over-top", "drag-over-bottom");
+    });
+
+    row.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      const targetId = row.dataset.rowId;
+      if (!draggedId || !targetId || draggedId === targetId) {
+        clearDropMarks();
+        return;
+      }
+      const rect = row.getBoundingClientRect();
+      const isAfter = e.clientY > rect.top + rect.height / 2;
+      clearDropMarks();
+
+      const currentIds = items.map((x) => x.id);
+      const fromIdx = currentIds.indexOf(draggedId);
+      if (fromIdx < 0) return;
+      currentIds.splice(fromIdx, 1);
+      let toIdx = currentIds.indexOf(targetId);
+      if (toIdx < 0) return;
+      if (isAfter) toIdx += 1;
+      currentIds.splice(toIdx, 0, draggedId);
+      draggedId = null;
+      await persistSectionOrder(section, currentIds, list);
+    });
+
+    row.addEventListener("dragend", () => {
+      draggedId = null;
+      row.classList.remove("dragging");
+      clearDropMarks();
+    });
+  });
 
   list.querySelectorAll("[data-edit-id]").forEach((btn) => {
     btn.addEventListener("click", () => {

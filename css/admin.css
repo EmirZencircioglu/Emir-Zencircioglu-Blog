@@ -656,3 +656,91 @@
   color: rgba(242, 240, 233, 0.45);
   font-style: italic;
 }
+
+/* Sürükle-Bırak ve Yukarı/Aşağı Sıralama */
+.admin-item-row.reorderable {
+  position: relative;
+  cursor: grab;
+  transition: border-color 0.16s ease, background-color 0.16s ease, opacity 0.16s ease, transform 0.16s ease;
+}
+
+.admin-item-row.reorderable:active {
+  cursor: grabbing;
+}
+
+.admin-item-row.reorderable .admin-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.drag-handle {
+  flex-shrink: 0;
+  color: rgba(242, 240, 233, 0.35);
+  font-size: 0.95rem;
+  letter-spacing: -2px;
+  line-height: 1;
+  user-select: none;
+  padding: 4px 2px;
+  transition: color 0.16s ease;
+}
+
+.admin-item-row.reorderable:hover .drag-handle {
+  color: var(--gold);
+}
+
+.item-order-num {
+  flex-shrink: 0;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: rgba(242, 240, 233, 0.65);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.order-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--gold);
+  border: 1px solid rgba(245, 208, 97, 0.28);
+  background: rgba(245, 208, 97, 0.07);
+  transition: background-color 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
+}
+
+.order-btn:hover:not(:disabled) {
+  background: rgba(245, 208, 97, 0.18);
+  border-color: rgba(245, 208, 97, 0.52);
+}
+
+.order-btn:disabled {
+  opacity: 0.28;
+  cursor: not-allowed;
+}
+
+.admin-item-row.dragging {
+  opacity: 0.45;
+  border-color: var(--gold);
+  background: rgba(245, 208, 97, 0.08);
+}
+
+.admin-item-row.drag-over-top {
+  border-top: 2px solid var(--gold);
+  box-shadow: inset 0 2px 0 rgba(245, 208, 97, 0.45);
+}
+
+.admin-item-row.drag-over-bottom {
+  border-bottom: 2px solid var(--gold);
+  box-shadow: inset 0 -2px 0 rgba(245, 208, 97, 0.45);
+}

@@ -2043,6 +2043,39 @@ class BlogHandler(BaseHTTPRequestHandler):
             self._send_json(200, {"ok": True, "item": updated})
             return
 
+        if path == "/api/admin/reorder":
+            body = self._read_json_body(64 * 1024)
+            if not body:
+                self._send_json(400, {"error": "Geçersiz sıralama verisi."})
+                return
+            section = body.get("section")
+            ordered_ids = body.get("ids")
+            if section not in {"socialPosts", "projects", "ideas", "events", "credentials"} or not isinstance(ordered_ids, list):
+                self._send_json(400, {"error": "Geçersiz bölüm veya sıralama listesi."})
+                return
+
+            with CONTENT_LOCK:
+                content = load_content()
+                items = content.get(section, [])
+                by_id = {x.get("id"): x for x in items if isinstance(x, dict) and x.get("id")}
+                seen = set()
+                reordered = []
+                for raw_id in ordered_ids:
+                    item_id = str(raw_id or "")
+                    if item_id in by_id and item_id not in seen:
+                        reordered.append(by_id[item_id])
+                        seen.add(item_id)
+                for item in items:
+                    item_id = item.get("id") if isinstance(item, dict) else None
+                    if not item_id or item_id not in seen:
+                        reordered.append(item)
+                        if item_id:
+                            seen.add(item_id)
+                content[section] = reordered
+                save_content(content)
+            self._send_json(200, {"ok": True, "ids": [x.get("id") for x in reordered if isinstance(x, dict)]})
+            return
+
         self._send_json(404, {"error": "Bilinmeyen uç nokta."})
 
     def do_DELETE(self):
