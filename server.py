@@ -121,14 +121,48 @@ def save_secret(username: str, password: str):
     salt_hex, pw_hash = hash_password(password)
     existing = load_secret() or {}
     payload = {
+        **existing,
         "username": username.strip(),
         "salt": salt_hex,
         "password_hash": pw_hash,
         "session_secret": secrets.token_hex(32),
         "webhook_secret": existing.get("webhook_secret") or secrets.token_hex(24),
-        "created_at": int(time.time()),
+        "created_at": existing.get("created_at") or int(time.time()),
+        "updated_at": int(time.time()),
     }
     _write_secret_file(payload)
+
+
+def apply_env_admin_reset():
+    """Ortam değişkeni (ADMIN_RESET_PASSWORD / ADMIN_RESET_USERNAME) ile güvenli şifre sıfırlama."""
+    reset_pw = os.environ.get("ADMIN_RESET_PASSWORD", "").strip()
+    if not reset_pw:
+        return
+    if len(reset_pw) < 8:
+        print("[Admin Reset] ADMIN_RESET_PASSWORD en az 8 karakter olmalı, atlandı.", flush=True)
+        return
+    existing = load_secret() or {}
+    reset_user = (
+        os.environ.get("ADMIN_RESET_USERNAME", "").strip()
+        or str(existing.get("username") or "").strip()
+        or "admin"
+    )
+    if len(reset_user) < 3:
+        print("[Admin Reset] Kullanıcı adı en az 3 karakter olmalı, atlandı.", flush=True)
+        return
+    if (
+        existing.get("username") == reset_user
+        and existing.get("salt")
+        and existing.get("password_hash")
+        and verify_password(reset_pw, existing["salt"], existing["password_hash"])
+    ):
+        return
+    save_secret(reset_user, reset_pw)
+    print(
+        f"[Admin Reset] Admin şifresi güncellendi (kullanıcı adı: {reset_user}). "
+        "Giriş yaptıktan sonra ADMIN_RESET_PASSWORD değişkenini silebilirsiniz.",
+        flush=True,
+    )
 
 
 def rotate_webhook_secret() -> str:
@@ -2200,6 +2234,7 @@ def main():
     args = parser.parse_args()
 
     ensure_dirs()
+    apply_env_admin_reset()
 
     if args.reset_password:
         reset_password_cli()
